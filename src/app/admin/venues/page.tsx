@@ -11,12 +11,23 @@ export default function AdminVenues() {
   const [venues, setVenues] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
+  const [editId, setEditId] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [imageUrl, setImageUrl] = useState("");
 
   useEffect(() => {
     fetchVenues();
   }, []);
+
+  const editingVenue = venues.find(v => v.id === editId);
+
+  useEffect(() => {
+    if (editingVenue) {
+      setImageUrl(editingVenue.imageUrl || editingVenue.image || "");
+    } else {
+      setImageUrl("");
+    }
+  }, [editId, showAdd]);
 
   const fetchVenues = async () => {
     try {
@@ -35,7 +46,7 @@ export default function AdminVenues() {
     (v.city || '').toLowerCase().includes(search.toLowerCase())
   );
 
-  const toggleActive = async (id: number, currentStatus: boolean) => {
+  const toggleActive = async (id: any, currentStatus: boolean) => {
     try {
       await api.patch(`/admin/venues/${id}/status`, { isActive: !currentStatus });
       setVenues(vs => vs.map(v => v.id === id ? { ...v, isActive: !currentStatus } : v));
@@ -44,7 +55,7 @@ export default function AdminVenues() {
     }
   };
 
-  const deleteVenue = async (id: number) => {
+  const deleteVenue = async (id: any) => {
     if (confirm("Are you sure you want to delete this venue?")) {
       try {
         await api.delete(`/admin/venues/${id}`);
@@ -55,7 +66,21 @@ export default function AdminVenues() {
     }
   };
 
-  const editingVenue = venues.find(v => v.id === editId);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert("File size should not exceed 5MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (reader.result) {
+        setImageUrl(String(reader.result));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,6 +94,7 @@ export default function AdminVenues() {
       location: String(rawData.location || "").trim(),
       pricePerHour: Number(rawData.pricePerHour) || 0,
       type: (rawData.type === "Outdoor" ? "Outdoor" : "Indoor") as "Indoor" | "Outdoor",
+      imageUrl: imageUrl || String(rawData.imageUrl || "").trim() || undefined,
     };
 
     try {
@@ -79,6 +105,7 @@ export default function AdminVenues() {
       }
       setShowAdd(false);
       setEditId(null);
+      setImageUrl("");
       fetchVenues();
     } catch (error: any) {
       console.error("Failed to save venue", error);
@@ -100,7 +127,7 @@ export default function AdminVenues() {
             className="pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-green-100 transition-all w-64"
           />
         </div>
-        <button onClick={() => { setEditId(null); setShowAdd(true); }}
+        <button onClick={() => { setEditId(null); setImageUrl(""); setShowAdd(true); }}
           className="flex items-center gap-2 bg-[#16A34A] text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#15803d] transition-colors"
         >
           <Plus className="w-4 h-4" /> Add Venue
@@ -109,14 +136,14 @@ export default function AdminVenues() {
 
       {/* Add/Edit Modal */}
       {(showAdd || editId !== null) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setShowAdd(false); setEditId(null); }} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 overflow-y-auto py-10">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setShowAdd(false); setEditId(null); setImageUrl(""); }} />
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg z-10"
+            className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg z-10 max-h-[90vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-bold text-gray-900 text-lg">{editId !== null ? "Edit Venue" : "Add New Venue"}</h2>
-              <button onClick={() => { setShowAdd(false); setEditId(null); }} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+              <button onClick={() => { setShowAdd(false); setEditId(null); setImageUrl(""); }} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleSave}>
               <div className="grid grid-cols-2 gap-4">
@@ -139,6 +166,40 @@ export default function AdminVenues() {
                     />
                   </div>
                 ))}
+                
+                {/* Photo Upload & Preview Section */}
+                <div className="col-span-2 space-y-2">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Venue Photo</label>
+                  
+                  {imageUrl && (
+                    <div className="relative w-full h-44 rounded-xl overflow-hidden bg-gray-100 border border-gray-200 mb-2">
+                      <img src={imageUrl} alt="Venue preview" className="w-full h-full object-cover" />
+                      <button type="button" onClick={() => setImageUrl("")} className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full hover:bg-red-700">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 items-center">
+                    <label className="flex-1 cursor-pointer flex items-center justify-center gap-2 px-4 py-2.5 bg-green-50 text-[#16A34A] border border-green-200 rounded-xl text-sm font-semibold hover:bg-green-100 transition-colors">
+                      📷 Upload Photo File
+                      <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+                    </label>
+                  </div>
+                  
+                  <div className="mt-2">
+                    <label className="block text-[11px] text-gray-400 mb-1">Or paste Image URL:</label>
+                    <input
+                      name="imageUrl"
+                      type="url"
+                      placeholder="https://images.unsplash.com/..."
+                      value={imageUrl}
+                      onChange={(e) => setImageUrl(e.target.value)}
+                      className="w-full px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 placeholder-gray-400 outline-none focus:border-[#16A34A]"
+                    />
+                  </div>
+                </div>
+
                 <div className="col-span-2">
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Type</label>
                   <select
@@ -152,7 +213,7 @@ export default function AdminVenues() {
                 </div>
               </div>
               <div className="flex gap-3 mt-6">
-                <button type="button" onClick={() => { setShowAdd(false); setEditId(null); }} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:border-gray-300">Cancel</button>
+                <button type="button" onClick={() => { setShowAdd(false); setEditId(null); setImageUrl(""); }} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:border-gray-300">Cancel</button>
                 <button type="submit" className="flex-1 py-2.5 bg-[#16A34A] text-white rounded-xl text-sm font-semibold hover:bg-[#15803d]">
                   {editId !== null ? "Save Changes" : "Add Venue"}
                 </button>
