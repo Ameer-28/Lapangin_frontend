@@ -25,15 +25,17 @@ export default function DashboardPage() {
       try {
         const [profileRes, statsRes, bookingsRes, favRes] = await Promise.all([
           api.get("/users/me"),
-          api.get("/users/me/stats"),
-          api.get("/bookings?status=upcoming"),
-          api.get("/favorites"),
+          api.get("/users/me/stats").catch(() => ({ data: {} })),
+          api.get("/bookings?status=upcoming").catch(() => ({ data: [] })),
+          api.get("/favorites").catch(() => ({ data: [] })),
         ]);
         
-        setProfile(profileRes.data.data);
-        setStats(statsRes.data.data);
-        setUpcoming(bookingsRes.data.data || []);
-        setFavorites(favRes.data.data || []);
+        setProfile(profileRes.data.data || profileRes.data);
+        setStats(statsRes.data.data || statsRes.data);
+        const bData = bookingsRes.data;
+        setUpcoming(Array.isArray(bData) ? bData : (bData?.items || bData?.data || []));
+        const fData = favRes.data;
+        setFavorites(Array.isArray(fData) ? fData : (fData?.items || fData?.data || []));
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       } finally {
@@ -56,9 +58,9 @@ export default function DashboardPage() {
   ];
 
   const quickActions = [
-    { label: "Book a Field", Icon: Search, href: "/browse", bg: "bg-[#16A34A]", fg: "text-white" },
+    { label: "Book a Field", Icon: Search, href: "/venues", bg: "bg-[#16A34A]", fg: "text-white" },
     { label: "My Bookings", Icon: BookMarked, href: "/history", bg: "bg-white", fg: "text-gray-800" },
-    { label: "Saved Venues", Icon: Heart, href: "/browse?favorites=true", bg: "bg-white", fg: "text-gray-800" }, // Alternatively to favorites page if it exists
+    { label: "Saved Venues", Icon: Heart, href: "/venues", bg: "bg-white", fg: "text-gray-800" },
     { label: "Profile", Icon: User, href: "/profile", bg: "bg-white", fg: "text-gray-800" },
   ];
 
@@ -68,7 +70,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-            Good morning, {profile?.name?.split(' ')[0] || 'Player'}! 👋
+            Good morning, {profile?.fullName?.split(' ')[0] || profile?.name?.split(' ')[0] || 'Player'}! 👋
           </h1>
           <p className="text-gray-500 mt-1">Ready to play? Here's your overview.</p>
         </div>
@@ -114,23 +116,23 @@ export default function DashboardPage() {
           <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center text-gray-400">
             <Calendar className="w-10 h-10 mx-auto mb-3 opacity-30" />
             <p className="font-medium">No upcoming bookings</p>
-            <GreenButton onClick={() => router.push("/browse")} className="mt-4 px-6 py-2.5 text-sm mx-auto">Book a Field</GreenButton>
+            <GreenButton onClick={() => router.push("/venues")} className="mt-4 px-6 py-2.5 text-sm mx-auto">Book a Field</GreenButton>
           </div>
         ) : (
           <div className="space-y-4">
             {upcoming.map(b => (
               <div key={b.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 p-4 hover:shadow-md transition-shadow">
                 <div className="w-20 h-16 rounded-xl bg-green-100 overflow-hidden shrink-0">
-                  <img src={b.venue?.image} alt={b.venue?.name} className="w-full h-full object-cover" />
+                  <img src={b.venue?.imageUrl || b.venue?.image || "https://images.unsplash.com/photo-1574629810360-7efbb192563a?auto=format&fit=crop&q=80"} alt={b.venue?.name} className="w-full h-full object-cover" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-gray-900 text-sm truncate">{b.venue?.name}</p>
-                  <p className="text-gray-500 text-xs mt-0.5">{b.date}</p>
-                  <p className="text-gray-500 text-xs">{b.startTime} - {b.endTime}</p>
+                  <p className="text-gray-500 text-xs mt-0.5">{b.date ? new Date(b.date).toLocaleDateString() : '-'}</p>
+                  <p className="text-gray-500 text-xs">{b.startTime}</p>
                 </div>
                 <div className="text-right shrink-0">
                   <StatusBadge status={b.status} />
-                  <p className="text-[#16A34A] font-bold text-sm mt-1.5">{formatPrice(b.totalPrice)}</p>
+                  <p className="text-[#16A34A] font-bold text-sm mt-1.5">{formatPrice(b.total ?? b.totalPrice ?? 0)}</p>
                 </div>
               </div>
             ))}
@@ -142,7 +144,7 @@ export default function DashboardPage() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-gray-900">Favourite Venues</h2>
-          <Link href="/browse" className="text-[#16A34A] text-sm font-semibold hover:underline">Browse more</Link>
+          <Link href="/venues" className="text-[#16A34A] text-sm font-semibold hover:underline">Browse more</Link>
         </div>
         
         {favorites.length === 0 ? (
@@ -153,15 +155,15 @@ export default function DashboardPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {favorites.slice(0, 3).map(f => (
-              <div key={f.venueId} onClick={() => router.push(`/venues/${f.venueId}`)} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-shadow group">
+              <div key={f.venueId || f.id} onClick={() => router.push(`/venues/${f.venueId || f.venue?.id || f.id}`)} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-shadow group">
                 <div className="h-32 bg-green-100 overflow-hidden">
-                  <img src={f.venue?.image} alt={f.venue?.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  <img src={f.venue?.imageUrl || f.venue?.image || "https://images.unsplash.com/photo-1574629810360-7efbb192563a?auto=format&fit=crop&q=80"} alt={f.venue?.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                 </div>
                 <div className="p-4">
-                  <p className="font-bold text-gray-900 text-sm">{f.venue?.name}</p>
+                  <p className="font-bold text-gray-900 text-sm">{f.venue?.name || "Futsal Venue"}</p>
                   <div className="flex items-center justify-between mt-1">
-                    <div className="flex items-center gap-1 text-gray-400 text-xs"><MapPin className="w-3 h-3" />{f.venue?.city}</div>
-                    <span className="text-[#16A34A] font-bold text-xs">{formatPrice(f.venue?.pricePerHour)}/hr</span>
+                    <div className="flex items-center gap-1 text-gray-400 text-xs"><MapPin className="w-3 h-3" />{f.venue?.city || "Kota"}</div>
+                    <span className="text-[#16A34A] font-bold text-xs">{formatPrice(f.venue?.pricePerHour || 0)}/hr</span>
                   </div>
                 </div>
               </div>
