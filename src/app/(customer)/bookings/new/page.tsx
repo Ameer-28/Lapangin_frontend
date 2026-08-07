@@ -97,24 +97,29 @@ export default function BookingPaymentPage() {
     }
   };
 
-  const loadSnapScript = (): Promise<boolean> => {
+  const loadSnapScript = (isProdServer?: boolean, key?: string): Promise<boolean> => {
     return new Promise((resolve) => {
-      if (typeof window !== "undefined" && (window as any).snap) {
-        return resolve(true);
-      }
-      const clientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "Mid-client-XYX-dnFfFbXRZJ5c";
-      const snapUrl = process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === "true"
+      const clientKey = key || process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "Mid-client-XYX-dnFfFbXRZJ5c";
+      const isProd = isProdServer !== undefined
+        ? isProdServer
+        : (process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === "true" || !clientKey.startsWith("SB-"));
+
+      const targetSnapUrl = isProd
         ? "https://app.midtrans.com/snap/snap.js"
         : "https://app.sandbox.midtrans.com/snap/snap.js";
 
       const existingScript = document.querySelector('script[src*="snap/snap.js"]');
       if (existingScript) {
-        existingScript.addEventListener("load", () => resolve(true));
-        setTimeout(() => resolve(!!(window as any).snap), 1000);
-        return;
+        const currentSrc = existingScript.getAttribute("src") || "";
+        if (currentSrc === targetSnapUrl && (window as any).snap) {
+          return resolve(true);
+        }
+        existingScript.remove();
+        delete (window as any).snap;
       }
+
       const script = document.createElement("script");
-      script.src = snapUrl;
+      script.src = targetSnapUrl;
       script.setAttribute("data-client-key", clientKey);
       script.onload = () => resolve(true);
       script.onerror = () => resolve(false);
@@ -141,14 +146,17 @@ export default function BookingPaymentPage() {
 
       const booking = res.data.data || res.data;
 
-      // Ensure Midtrans script is loaded
-      await loadSnapScript();
-
       try {
         const snapRes = await api.post("/payments/create-snap-token", {
           bookingId: booking.id
         });
-        const snapToken = snapRes.data?.snapToken || snapRes.data?.token;
+        const snapData = snapRes.data;
+        const snapToken = snapData?.snapToken || snapData?.token;
+        const isProdServer = snapData?.isProduction;
+        const serverClientKey = snapData?.clientKey;
+
+        // Dynamically load the EXACT matching Midtrans SDK for this token
+        await loadSnapScript(isProdServer, serverClientKey);
 
         if (typeof window !== "undefined" && (window as any).snap && snapToken) {
           (window as any).snap.pay(snapToken, {
