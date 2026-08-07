@@ -99,7 +99,7 @@ export default function BookingPaymentPage() {
 
   const loadSnapScript = (isProdServer?: boolean, key?: string): Promise<boolean> => {
     return new Promise((resolve) => {
-      const clientKey = key || process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "Mid-client-XYX-dnFfFbXRZJ5c";
+      const clientKey = key || process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "Mid-client-wGTEfERQ2q9RTPQN";
       const isProd = isProdServer !== undefined
         ? isProdServer
         : (process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === "true" || !clientKey.startsWith("SB-"));
