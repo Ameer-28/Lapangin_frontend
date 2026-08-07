@@ -265,7 +265,7 @@ export default function AdminVenues() {
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-green-100 overflow-hidden shrink-0">
-                        <img src={v.image || "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop"} alt={v.name} className="w-full h-full object-cover" />
+                        <img src={v.imageUrl || v.image || "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop"} alt={v.name} className="w-full h-full object-cover" />
                       </div>
                       <span className="font-semibold text-gray-900 text-sm whitespace-nowrap">{v.name}</span>
                     </div>
