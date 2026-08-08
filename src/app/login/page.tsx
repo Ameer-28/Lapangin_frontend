@@ -16,6 +16,21 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const userStr = localStorage.getItem("user");
+    if (token && userStr) {
+      try {
+        const u = JSON.parse(userStr);
+        if (u.role === "admin") {
+          router.push("/admin");
+        } else {
+          router.push("/");
+        }
+      } catch (e) {}
+    }
+  }, [router]);
+
   const handleLogin = async () => {
     try {
       setLoading(true);
@@ -27,9 +42,14 @@ export default function LoginPage() {
       const profileRes = await api.get('/auth/profile', {
         headers: { Authorization: `Bearer ${res.data.access_token}` }
       });
-      localStorage.setItem('user', JSON.stringify(profileRes.data));
+      const userData = profileRes.data;
+      localStorage.setItem('user', JSON.stringify(userData));
       
-      router.push("/");
+      if (userData?.role === 'admin') {
+        router.push("/admin");
+      } else {
+        router.push("/");
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || "Login failed");
     } finally {

@@ -21,8 +21,14 @@ function CallbackHandler() {
         const profileRes = await api.get("/auth/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        localStorage.setItem("user", JSON.stringify(profileRes.data));
-        router.push("/");
+        const userData = profileRes.data;
+        localStorage.setItem("user", JSON.stringify(userData));
+
+        if (userData?.role === "admin") {
+          router.push("/admin");
+        } else {
+          router.push("/");
+        }
       } catch (err) {
         console.error("Failed to fetch profile during OAuth callback:", err);
         router.push("/login");
