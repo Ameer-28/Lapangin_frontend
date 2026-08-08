@@ -128,6 +128,16 @@ export default function BookingPaymentPage() {
   };
 
   const handleConfirmPay = async () => {
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      try {
+        const u = JSON.parse(userStr);
+        if (u.role === "admin") {
+          alert("Akun Admin tidak diperbolehkan melakukan pemesanan lapangan. Silakan gunakan akun customer biasa.");
+          return;
+        }
+      } catch (e) {}
+    }
     if (!selTime) {
       alert("Please select a time slot");
       return;

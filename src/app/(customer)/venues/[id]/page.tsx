@@ -231,6 +231,16 @@ export default function VenueDetailPage({ params }: { params: { id: string } }) 
             </div>
             <GreenButton 
               onClick={() => {
+                const userStr = localStorage.getItem("user");
+                if (userStr) {
+                  try {
+                    const u = JSON.parse(userStr);
+                    if (u.role === "admin") {
+                      alert("Akun Admin tidak diperbolehkan melakukan pemesanan lapangan. Silakan gunakan akun customer biasa.");
+                      return;
+                    }
+                  } catch (e) {}
+                }
                 const today = new Date().toISOString().split('T')[0];
                 router.push(`/bookings/new?venueId=${venue.id}&date=${today}${selSlot ? `&startTime=${selSlot}` : ''}`);
               }} 
