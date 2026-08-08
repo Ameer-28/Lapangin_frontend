@@ -270,7 +270,7 @@ export default function AdminVenues() {
                       <span className="font-semibold text-gray-900 text-sm whitespace-nowrap">{v.name}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-4 text-sm text-gray-500 whitespace-nowrap">{v.owner || "PT Sportindo"}</td>
+                  <td className="px-4 py-4 text-sm text-gray-500 whitespace-nowrap">{v.owner || "-"}</td>
                   <td className="px-4 py-4 text-sm text-gray-500">{v.city}</td>
                   <td className="px-4 py-4">
                     <span className={cn("text-xs font-bold px-2.5 py-1 rounded-full", v.type === "Indoor" ? "bg-green-100 text-[#16A34A]" : "bg-yellow-100 text-yellow-700")}>{v.type}</span>

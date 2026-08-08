@@ -15,12 +15,13 @@ export default function AdminReports() {
   useEffect(() => {
     const fetchReports = async () => {
       try {
+        const months = period === '1year' ? 12 : period === 'alltime' ? 24 : 6;
         const [revenueRes, monthlyRes, venueTypeRes, topVenuesRes, financialRes] = await Promise.all([
-          api.get("/admin/reports/revenue"),
-          api.get("/admin/reports/monthly-bookings"),
+          api.get(`/admin/reports/revenue?months=${months}`),
+          api.get(`/admin/reports/monthly-bookings?months=${months}`),
           api.get("/admin/reports/venue-type-split"),
           api.get("/admin/reports/top-venues"),
-          api.get("/admin/reports/financial")
+          api.get(`/admin/reports/financial?period=${period}`)
         ]);
 
         setData({
@@ -61,18 +62,14 @@ export default function AdminReports() {
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Gross Revenue",    value: formatPrice(data.financial?.grossRevenue ?? 0),  delta: "+12.4%", up: true  },
-          { label: "Net Revenue",      value: formatPrice(data.financial?.netRevenue ?? 0),  delta: "+11.8%", up: true  },
-          { label: "Avg Booking Value",value: formatPrice(data.financial?.avgBookingValue ?? 0),  delta: "+3.2%",  up: true  },
-          { label: "Cancellation Rate",value: `${(data.financial?.cancellationRate ?? 0).toFixed?.(1) ?? '0.0'}%`,    delta: "-1.4%",  up: false },
+          { label: "Gross Revenue",    value: formatPrice(data.financial?.grossRevenue ?? 0)  },
+          { label: "Net Revenue",      value: formatPrice(data.financial?.netRevenue ?? 0)  },
+          { label: "Avg Booking Value",value: formatPrice(data.financial?.avgBookingValue ?? 0)  },
+          { label: "Cancellation Rate",value: `${(data.financial?.cancellationRate ?? 0).toFixed?.(1) ?? '0.0'}%` },
         ].map(k => (
           <div key={k.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <p className="text-gray-500 text-xs font-medium mb-1">{k.label}</p>
             <p className="text-2xl font-bold text-gray-900">{k.value}</p>
-            <div className={cn("inline-flex items-center gap-1 text-xs font-bold mt-1", k.up ? "text-green-600" : "text-red-500")}>
-              {k.up ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
-              {k.delta}
-            </div>
           </div>
         ))}
       </div>

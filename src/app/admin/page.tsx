@@ -65,10 +65,10 @@ export default function AdminOverview() {
   const activeVenues = data.overview?.totalVenues ?? data.overview?.activeVenues ?? 0;
 
   const stats = [
-    { label: "Total Revenue",   value: formatPrice(totalRevenue),  sub: "+12.4% vs last month", Icon: DollarSign,   color: "#16A34A", bg: "#F0FDF4", trend: "up" },
-    { label: "Total Bookings",  value: totalBookings.toString(),    sub: "+8.1% vs last month",  Icon: BookOpen,     color: "#3B82F6", bg: "#EFF6FF", trend: "up" },
-    { label: "Active Users",    value: activeUsers.toString(),      sub: "+5.7% vs last month",  Icon: Users,        color: "#8B5CF6", bg: "#F5F3FF", trend: "up" },
-    { label: "Active Venues",   value: activeVenues.toString(),     sub: "Total venues active",  Icon: MapPin,       color: "#F59E0B", bg: "#FFFBEB", trend: "neutral" },
+    { label: "Total Revenue",   value: formatPrice(totalRevenue),  sub: "Lifetime completed revenue", Icon: DollarSign,   color: "#16A34A", bg: "#F0FDF4", trend: "up" },
+    { label: "Total Bookings",  value: totalBookings.toString(),    sub: "All time bookings",          Icon: BookOpen,     color: "#3B82F6", bg: "#EFF6FF", trend: "up" },
+    { label: "Active Users",    value: activeUsers.toString(),      sub: "Total registered users",    Icon: Users,        color: "#8B5CF6", bg: "#F5F3FF", trend: "up" },
+    { label: "Active Venues",   value: activeVenues.toString(),     sub: "Total active venues",        Icon: MapPin,       color: "#F59E0B", bg: "#FFFBEB", trend: "neutral" },
   ];
 
   return (
@@ -77,17 +77,12 @@ export default function AdminOverview() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((s, i) => (
           <motion.div key={s.label} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
-            className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow"
+            className="bg-[#FFFFFF] rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow"
           >
             <div className="flex items-start justify-between mb-4">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: s.bg }}>
                 <s.Icon className="w-5 h-5" style={{ color: s.color }} />
               </div>
-              {s.trend === "up" && (
-                <div className="flex items-center gap-0.5 text-green-600 text-xs font-semibold">
-                  <ArrowUpRight className="w-3.5 h-3.5" />
-                </div>
-              )}
             </div>
             <p className="text-2xl font-bold text-gray-900">{s.value}</p>
             <p className="text-gray-500 text-xs mt-0.5 font-medium">{s.label}</p>
@@ -105,10 +100,6 @@ export default function AdminOverview() {
               <h2 className="font-bold text-gray-900">Revenue Trend</h2>
               <p className="text-gray-400 text-xs mt-0.5">Last 6 months</p>
             </div>
-            <select className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-600 outline-none">
-              <option>Last 6 months</option>
-              <option>Last year</option>
-            </select>
           </div>
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={data.revenue} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
@@ -130,7 +121,7 @@ export default function AdminOverview() {
         {/* Booking Status Pie */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <h2 className="font-bold text-gray-900 mb-1">Booking Status</h2>
-          <p className="text-gray-400 text-xs mb-4">This month</p>
+          <p className="text-gray-400 text-xs mb-4">All time status breakdown</p>
           <ResponsiveContainer width="100%" height={160}>
             <PieChart>
               <Pie data={data.status} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value">
@@ -159,9 +150,6 @@ export default function AdminOverview() {
           <div>
             <h2 className="font-bold text-gray-900">Monthly Bookings</h2>
             <p className="text-gray-400 text-xs mt-0.5">Total transactions per month</p>
-          </div>
-          <div className="flex items-center gap-1.5 text-green-600 text-sm font-semibold bg-green-50 px-3 py-1 rounded-lg">
-            <ArrowUpRight className="w-4 h-4" /> +58% YoY
           </div>
         </div>
         <ResponsiveContainer width="100%" height={180}>

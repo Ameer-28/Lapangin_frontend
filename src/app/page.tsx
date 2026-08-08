@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -11,6 +11,7 @@ import { GreenButton } from "@/components/ui/GreenButton";
 import { Stars } from "@/components/ui/Stars";
 import { formatPrice } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import api from "@/lib/api";
 
 const TESTIMONIALS = [
   { name: "Rizki Pratama", initials: "RP", role: "Regular Player", rating: 5, text: "Lapang.in made it so easy to find and book courts near me. The real-time availability feature saved me so many wasted trips!" },
@@ -30,7 +31,22 @@ export default function LandingPage() {
   const [loc, setLoc]  = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
+  const [venues, setVenues] = useState<any[]>([]);
   const router = useRouter();
+
+  useEffect(() => {
+    const fetchVenues = async () => {
+      try {
+        const res = await api.get("/venues");
+        const raw = res.data;
+        const list = Array.isArray(raw) ? raw : (raw?.items || raw?.data || []);
+        setVenues(list.slice(0, 3));
+      } catch (err) {
+        console.error("Failed to fetch venues for landing page", err);
+      }
+    };
+    fetchVenues();
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
@@ -124,7 +140,7 @@ export default function LandingPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {MOCK_VENUES.map((v, i) => (
+          {venues.map((v, i) => (
             <motion.div
               key={v.id}
               initial={{ opacity: 0, y: 24 }}
@@ -135,7 +151,7 @@ export default function LandingPage() {
               className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl border border-gray-100 cursor-pointer group transition-all duration-300"
             >
               <div className="relative h-48 bg-green-100 overflow-hidden">
-                <img src={v.image} alt={v.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                <img src={v.imageUrl || v.image || "https://images.unsplash.com/photo-1574629810360-7efbb192563a?auto=format&fit=crop&q=80"} alt={v.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 <div className="absolute top-3 left-3">
                   <span className={cn("text-xs font-bold px-2.5 py-1 rounded-full", v.type === "Indoor" ? "bg-[#16A34A] text-white" : "bg-[#FACC15] text-gray-900")}>{v.type}</span>
                 </div>
@@ -150,11 +166,11 @@ export default function LandingPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
-                    <Stars rating={v.rating} />
-                    <span className="text-gray-400 text-xs">({v.reviews})</span>
+                    <Stars rating={v.rating || 0} />
+                    <span className="text-gray-400 text-xs">({v.reviewCount ?? v.reviews ?? 0})</span>
                   </div>
                   <div className="text-right">
-                    <span className="font-bold text-[#16A34A] text-sm">{formatPrice(v.price)}</span>
+                    <span className="font-bold text-[#16A34A] text-sm">{formatPrice(v.pricePerHour || v.price || 0)}</span>
                     <span className="text-gray-400 text-xs">/hr</span>
                   </div>
                 </div>
