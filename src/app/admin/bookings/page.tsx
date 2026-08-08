@@ -196,11 +196,12 @@ export default function AdminBookings() {
                   <p className="font-bold text-gray-900">{viewBooking.bookingCode || `BK-${viewBooking.id}`}</p>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-4">
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Customer</p>
                     <p className="font-semibold text-gray-900">{viewBooking.user?.fullName || viewBooking.user?.name || '-'}</p>
-                    <p className="text-sm text-gray-500">{viewBooking.user?.email || '-'}</p>
+                    <p className="text-sm text-gray-500 truncate">{viewBooking.user?.email || '-'}</p>
+                    {viewBooking.user?.phone && <p className="text-sm text-gray-500">{viewBooking.user.phone}</p>}
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Venue</p>
@@ -222,7 +223,7 @@ export default function AdminBookings() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-1">Duration</p>
-                    <p className="font-semibold text-gray-900">{viewBooking.duration ? `${viewBooking.duration}h` : '-'}</p>
+                    <p className="font-semibold text-gray-900">{viewBooking.durationHours ? `${viewBooking.durationHours} jam` : (viewBooking.duration ? `${viewBooking.duration} jam` : '-')}</p>
                   </div>
                 </div>
 
