@@ -9,12 +9,20 @@ import api from "@/lib/api";
 import { GreenButton } from "@/components/ui/GreenButton";
 import { cn } from "@/lib/utils";
 
+import { PopupModal, PopupType } from "@/components/ui/PopupModal";
+
 export default function ProfilePage() {
   const router = useRouter();
   const [tab, setTab] = useState<"info" | "password" | "notifications">("info");
   
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [popup, setPopup] = useState<{
+    isOpen: boolean;
+    type?: PopupType;
+    title?: string;
+    message: string;
+  }>({ isOpen: false, message: "" });
 
   // Form states
   const [formData, setFormData] = useState({
@@ -74,16 +82,31 @@ export default function ProfilePage() {
         phone: formData.phone,
         city: formData.city
       });
-      alert("Profile updated successfully!");
-    } catch (err) {
-      alert("Failed to update profile");
+      setPopup({
+        isOpen: true,
+        type: "success",
+        title: "Profil Diperbarui",
+        message: "Data profil Anda berhasil disimpan."
+      });
+    } catch (err: any) {
+      setPopup({
+        isOpen: true,
+        type: "error",
+        title: "Gagal Mengubah Profil",
+        message: err.response?.data?.message || "Gagal memperbarui informasi profil."
+      });
       console.error(err);
     }
   };
 
   const handleUpdatePassword = async () => {
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      alert("New passwords do not match");
+      setPopup({
+        isOpen: true,
+        type: "warning",
+        title: "Password Tidak Cocok",
+        message: "Password baru dan konfirmasi password tidak sama."
+      });
       return;
     }
     try {
@@ -91,10 +114,20 @@ export default function ProfilePage() {
         currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword
       });
-      alert("Password updated successfully!");
+      setPopup({
+        isOpen: true,
+        type: "success",
+        title: "Password Diperbarui",
+        message: "Password Anda telah berhasil diubah."
+      });
       setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
-    } catch (err) {
-      alert("Failed to update password");
+    } catch (err: any) {
+      setPopup({
+        isOpen: true,
+        type: "error",
+        title: "Gagal Mengubah Password",
+        message: err.response?.data?.message || "Password lama salah atau tidak memenuhi kriteria."
+      });
       console.error(err);
     }
   };
@@ -267,6 +300,13 @@ export default function ProfilePage() {
           )}
         </div>
       </div>
+      <PopupModal
+        isOpen={popup.isOpen}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        onClose={() => setPopup(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

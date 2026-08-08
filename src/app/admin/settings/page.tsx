@@ -38,12 +38,20 @@ const DEFAULT_SETTINGS: Record<string, { key: string; label: string; value: stri
   ],
 };
 
+import { PopupModal, PopupType } from "@/components/ui/PopupModal";
+
 export default function AdminSettings() {
   const [localSettings, setLocalSettings] = useState<Record<string, Record<string, string>>>({});
   const [dbSettings, setDbSettings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("general");
+  const [popup, setPopup] = useState<{
+    isOpen: boolean;
+    type?: PopupType;
+    title?: string;
+    message: string;
+  }>({ isOpen: false, message: "" });
 
   useEffect(() => {
     fetchSettings();
@@ -114,11 +122,21 @@ export default function AdminSettings() {
           }
         })
       );
-      alert("Settings saved successfully!");
+      setPopup({
+        isOpen: true,
+        type: "success",
+        title: "Pengaturan Disimpan",
+        message: "Perubahan sistem berhasil disimpan ke database."
+      });
       fetchSettings();
     } catch (error) {
       console.error("Failed to save settings", error);
-      alert("Failed to save settings");
+      setPopup({
+        isOpen: true,
+        type: "error",
+        title: "Gagal Menyimpan",
+        message: "Terjadi kesalahan saat menyimpan pengaturan sistem."
+      });
     } finally {
       setSaving(false);
     }
@@ -206,6 +224,14 @@ export default function AdminSettings() {
           ))}
         </div>
       </div>
+
+      <PopupModal
+        isOpen={popup.isOpen}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        onClose={() => setPopup(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

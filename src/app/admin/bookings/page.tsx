@@ -8,6 +8,8 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import api from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 
+import { PopupModal, PopupType } from "@/components/ui/PopupModal";
+
 export default function AdminBookings() {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -15,6 +17,13 @@ export default function AdminBookings() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [viewBooking, setViewBooking] = useState<any>(null);
+  const [popup, setPopup] = useState<{
+    isOpen: boolean;
+    type?: PopupType;
+    title?: string;
+    message: string;
+    onConfirm?: () => void;
+  }>({ isOpen: false, message: "" });
 
   useEffect(() => {
     fetchData();
@@ -42,19 +51,42 @@ export default function AdminBookings() {
       setViewBooking(res.data.data || res.data);
     } catch (error) {
       console.error('Failed to load booking details', error);
-      alert('Failed to load booking details');
+      setPopup({
+        isOpen: true,
+        type: "error",
+        title: "Gagal Memuat Detail",
+        message: "Tidak dapat memuat detail booking ini."
+      });
     }
   };
 
   const handleCancel = async (id: number) => {
-    if (confirm("Cancel this booking?")) {
-      try {
-        await api.patch(`/admin/bookings/${id}/cancel`);
-        setBookings(bs => bs.map(b => b.id === id ? { ...b, status: "cancelled" } : b));
-      } catch (error) {
-        console.error("Failed to cancel", error);
+    setPopup({
+      isOpen: true,
+      type: "confirm",
+      title: "Batalkan Booking Ini?",
+      message: "Apakah Anda yakin ingin membatalkan transaksi booking pengguna ini?",
+      onConfirm: async () => {
+        try {
+          await api.patch(`/admin/bookings/${id}/cancel`);
+          setBookings(bs => bs.map(b => b.id === id ? { ...b, status: "cancelled" } : b));
+          setPopup({
+            isOpen: true,
+            type: "success",
+            title: "Booking Dibatalkan",
+            message: "Transaksi booking telah berhasil dibatalkan."
+          });
+        } catch (error) {
+          console.error("Failed to cancel", error);
+          setPopup({
+            isOpen: true,
+            type: "error",
+            title: "Gagal Membatalkan",
+            message: "Gagal membatalkan transaksi booking."
+          });
+        }
       }
-    }
+    });
   };
 
   const filtered = bookings.filter(b => {
@@ -270,6 +302,15 @@ export default function AdminBookings() {
           </div>
         )}
       </AnimatePresence>
+
+      <PopupModal
+        isOpen={popup.isOpen}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        onClose={() => setPopup(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={popup.onConfirm}
+      />
     </div>
   );
 }

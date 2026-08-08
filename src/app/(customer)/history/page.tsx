@@ -10,6 +10,8 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 
+import { PopupModal, PopupType } from "@/components/ui/PopupModal";
+
 export default function HistoryPage() {
   const router = useRouter();
   const [tab, setTab] = useState<"all" | "upcoming" | "completed" | "cancelled">("all");
@@ -21,6 +23,14 @@ export default function HistoryPage() {
   const [reviewComment, setReviewComment] = useState('');
   const [reviewedBookings, setReviewedBookings] = useState<Set<string>>(new Set());
   const [submittingReview, setSubmittingReview] = useState(false);
+
+  const [popup, setPopup] = useState<{
+    isOpen: boolean;
+    type?: PopupType;
+    title?: string;
+    message: string;
+    onConfirm?: () => void;
+  }>({ isOpen: false, message: "" });
 
   const checkReviews = async (bookingItems: any[]) => {
     const reviewed = new Set<string>();
@@ -61,23 +71,51 @@ export default function HistoryPage() {
       setReviewBookingId(null);
       setReviewRating(0);
       setReviewComment('');
-      alert('Review berhasil dikirim! ⭐');
+      setPopup({
+        isOpen: true,
+        type: "success",
+        title: "Review Terkirim ⭐",
+        message: "Terima kasih atas ulasan dan rating yang Anda berikan!",
+      });
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Gagal mengirim review');
+      setPopup({
+        isOpen: true,
+        type: "error",
+        title: "Gagal Mengirim Review",
+        message: error.response?.data?.message || "Terjadi kesalahan saat mengirim ulasan.",
+      });
     } finally {
       setSubmittingReview(false);
     }
   };
 
   const handleCancel = async (id: string) => {
-    if (!confirm("Are you sure you want to cancel this booking?")) return;
-    try {
-      await api.patch(`/bookings/${id}/cancel`);
-      fetchBookings();
-    } catch (error) {
-      console.error("Error cancelling booking:", error);
-      alert("Failed to cancel booking. Please try again.");
-    }
+    setPopup({
+      isOpen: true,
+      type: "confirm",
+      title: "Batalkan Booking?",
+      message: "Apakah Anda yakin ingin membatalkan jadwal lapangan ini?",
+      onConfirm: async () => {
+        try {
+          await api.patch(`/bookings/${id}/cancel`);
+          fetchBookings();
+          setPopup({
+            isOpen: true,
+            type: "success",
+            title: "Booking Dibatalkan",
+            message: "Jadwal booking Anda telah berhasil dibatalkan.",
+          });
+        } catch (error) {
+          console.error("Error cancelling booking:", error);
+          setPopup({
+            isOpen: true,
+            type: "error",
+            title: "Gagal Membatalkan",
+            message: "Gagal membatalkan booking. Silakan coba beberapa saat lagi.",
+          });
+        }
+      },
+    });
   };
 
   const filtered = tab === "all" ? bookings : bookings.filter(b => b.status === tab);
@@ -251,6 +289,15 @@ export default function HistoryPage() {
           </div>
         )}
       </AnimatePresence>
+
+      <PopupModal
+        isOpen={popup.isOpen}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        onClose={() => setPopup(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={popup.onConfirm}
+      />
     </div>
   );
 }

@@ -13,6 +13,8 @@ import { formatPrice, MONTHS, getDaysInMonth, getFirstDayOfMonth } from "@/lib/d
 import { GreenButton } from "@/components/ui/GreenButton";
 import { cn } from "@/lib/utils";
 
+import { PopupModal, PopupType } from "@/components/ui/PopupModal";
+
 export default function BookingPaymentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -20,6 +22,13 @@ export default function BookingPaymentPage() {
 
   const [venue, setVenue] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  const [popup, setPopup] = useState<{
+    isOpen: boolean;
+    type?: PopupType;
+    title?: string;
+    message: string;
+  }>({ isOpen: false, message: "" });
 
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
@@ -90,8 +99,19 @@ export default function BookingPaymentPage() {
       const res = await api.post("/promo-codes/validate", { code: promo });
       setPromoApplied(true);
       setDiscountPercent((res.data.discount || res.data.discountPct || 0) / 100);
+      setPopup({
+        isOpen: true,
+        type: "success",
+        title: "Promo Berhasil!",
+        message: `Kode promo ${promo} berhasil digunakan!`,
+      });
     } catch (err) {
-      alert("Invalid promo code");
+      setPopup({
+        isOpen: true,
+        type: "warning",
+        title: "Kode Promo Tidak Valid",
+        message: "Kode promo yang Anda masukkan tidak valid atau sudah kadaluwarsa.",
+      });
       setPromoApplied(false);
       setDiscountPercent(0);
     }
@@ -133,13 +153,23 @@ export default function BookingPaymentPage() {
       try {
         const u = JSON.parse(userStr);
         if (u.role === "admin") {
-          alert("Akun Admin tidak diperbolehkan melakukan pemesanan lapangan. Silakan gunakan akun customer biasa.");
+          setPopup({
+            isOpen: true,
+            type: "warning",
+            title: "Akses Ditolak",
+            message: "Akun Admin tidak diperbolehkan melakukan pemesanan lapangan. Silakan gunakan akun customer biasa.",
+          });
           return;
         }
       } catch (e) {}
     }
     if (!selTime) {
-      alert("Please select a time slot");
+      setPopup({
+        isOpen: true,
+        type: "warning",
+        title: "Pilih Jam Main",
+        message: "Silakan pilih jam main terlebih dahulu sebelum melanjutkan pembayaran.",
+      });
       return;
     }
     try {
@@ -179,7 +209,12 @@ export default function BookingPaymentPage() {
               setStep("success");
             },
             onError: function (result: any) {
-              alert("Payment failed: " + (result?.status_message || "Transaction error"));
+              setPopup({
+                isOpen: true,
+                type: "error",
+                title: "Pembayaran Gagal",
+                message: result?.status_message || "Terjadi kesalahan pada transaksi pembayaran.",
+              });
               setBookingSuccessData(booking);
               setStep("success");
             },
@@ -200,12 +235,22 @@ export default function BookingPaymentPage() {
         if (errMsg.includes("Unauthorized") || errMsg.includes("401") || errMsg.includes("client or server key")) {
           errMsg = "Midtrans credentials on server need verification (401 Unauthorized). Booking created as pending.";
         }
-        alert("Payment Gateway: " + errMsg);
+        setPopup({
+          isOpen: true,
+          type: "warning",
+          title: "Payment Gateway",
+          message: errMsg,
+        });
         setBookingSuccessData(booking);
         setStep("success");
       }
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to create booking");
+      setPopup({
+        isOpen: true,
+        type: "error",
+        title: "Gagal Membuat Booking",
+        message: err.response?.data?.message || "Gagal membuat transaksi booking. Silakan coba lagi.",
+      });
       console.error(err);
     }
   };
@@ -491,6 +536,13 @@ export default function BookingPaymentPage() {
           </div>
         </div>
       </div>
+      <PopupModal
+        isOpen={popup.isOpen}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        onClose={() => setPopup(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

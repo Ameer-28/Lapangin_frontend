@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ChevronLeft, MapPin, Heart, Award, Clock, Star, Check } from "lucide-react";
 import { GreenButton } from "@/components/ui/GreenButton";
@@ -10,12 +10,14 @@ import { formatPrice, FACILITY_MAP } from "@/lib/data";
 import { cn as cx } from "@/lib/utils";
 import api from "@/lib/api";
 import Link from "next/link";
+import { PopupModal, PopupType } from "@/components/ui/PopupModal";
 
 const TIME_SLOTS = ["07:00","08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00"];
 
-export default function VenueDetailPage({ params }: { params: { id: string } }) {
+export default function VenueDetailPage() {
   const router = useRouter();
-  const { id } = params;
+  const params = useParams();
+  const id = params.id as string;
 
   const [venue, setVenue] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
@@ -23,6 +25,12 @@ export default function VenueDetailPage({ params }: { params: { id: string } }) 
   const [liked, setLiked] = useState(false);
   const [selSlot, setSelSlot] = useState<string | null>(null);
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const [popup, setPopup] = useState<{
+    isOpen: boolean;
+    type?: PopupType;
+    title?: string;
+    message: string;
+  }>({ isOpen: false, message: "" });
 
   useEffect(() => {
     fetchVenue();
@@ -236,7 +244,12 @@ export default function VenueDetailPage({ params }: { params: { id: string } }) 
                   try {
                     const u = JSON.parse(userStr);
                     if (u.role === "admin") {
-                      alert("Akun Admin tidak diperbolehkan melakukan pemesanan lapangan. Silakan gunakan akun customer biasa.");
+                      setPopup({
+                        isOpen: true,
+                        type: "warning",
+                        title: "Akses Ditolak",
+                        message: "Akun Admin tidak diperbolehkan melakukan pemesanan lapangan. Silakan gunakan akun customer biasa."
+                      });
                       return;
                     }
                   } catch (e) {}
@@ -252,6 +265,13 @@ export default function VenueDetailPage({ params }: { params: { id: string } }) 
           </div>
         </div>
       </div>
+      <PopupModal
+        isOpen={popup.isOpen}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        onClose={() => setPopup(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

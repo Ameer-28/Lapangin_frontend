@@ -6,6 +6,7 @@ import { Search, Plus, PenLine, Trash2, X, ChevronLeft, ChevronRight } from "luc
 import api from "@/lib/api";
 import { formatPrice } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { PopupModal, PopupType } from "@/components/ui/PopupModal";
 
 export default function AdminVenues() {
   const [venues, setVenues] = useState<any[]>([]);
@@ -14,6 +15,13 @@ export default function AdminVenues() {
   const [editId, setEditId] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [imageUrl, setImageUrl] = useState("");
+  const [popup, setPopup] = useState<{
+    isOpen: boolean;
+    type?: PopupType;
+    title?: string;
+    message: string;
+    onConfirm?: () => void;
+  }>({ isOpen: false, message: "" });
 
   useEffect(() => {
     fetchVenues();
@@ -33,7 +41,7 @@ export default function AdminVenues() {
     try {
       const res = await api.get("/admin/venues");
       const raw = res.data;
-      setVenues(Array.isArray(raw) ? raw : (raw?.data || []));
+      setVenues(Array.isArray(raw) ? raw : (raw?.items || raw?.data || []));
     } catch (error) {
       console.error("Failed to load venues", error);
     } finally {
@@ -56,21 +64,44 @@ export default function AdminVenues() {
   };
 
   const deleteVenue = async (id: any) => {
-    if (confirm("Are you sure you want to delete this venue?")) {
-      try {
-        await api.delete(`/admin/venues/${id}`);
-        setVenues(vs => vs.filter(v => v.id !== id));
-      } catch (error) {
-        console.error("Failed to delete venue", error);
+    setPopup({
+      isOpen: true,
+      type: "confirm",
+      title: "Hapus Venue?",
+      message: "Apakah Anda yakin ingin menghapus venue ini? Semua jadwal terkait akan ikut terhapus.",
+      onConfirm: async () => {
+        try {
+          await api.delete(`/admin/venues/${id}`);
+          setVenues(vs => vs.filter(v => v.id !== id));
+          setPopup({
+            isOpen: true,
+            type: "success",
+            title: "Venue Dihapus",
+            message: "Data venue telah berhasil dihapus dari sistem."
+          });
+        } catch (error) {
+          console.error("Failed to delete venue", error);
+          setPopup({
+            isOpen: true,
+            type: "error",
+            title: "Gagal Menghapus",
+            message: "Gagal menghapus venue dari database."
+          });
+        }
       }
-    }
+    });
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) {
-      alert("File size should not exceed 10MB");
+      setPopup({
+        isOpen: true,
+        type: "warning",
+        title: "Ukuran File Terlalu Besar",
+        message: "Ukuran file foto tidak boleh melebihi 10MB."
+      });
       return;
     }
     const reader = new FileReader();
@@ -132,9 +163,20 @@ export default function AdminVenues() {
       setEditId(null);
       setImageUrl("");
       fetchVenues();
+      setPopup({
+        isOpen: true,
+        type: "success",
+        title: "Venue Disimpan",
+        message: editId ? "Data venue berhasil diperbarui." : "Venue baru berhasil ditambahkan."
+      });
     } catch (error: any) {
       console.error("Failed to save venue", error);
-      alert(error.response?.data?.message || "Failed to save venue");
+      setPopup({
+        isOpen: true,
+        type: "error",
+        title: "Gagal Menyimpan",
+        message: error.response?.data?.message || "Gagal menyimpan data venue."
+      });
     }
   };
 
@@ -312,6 +354,14 @@ export default function AdminVenues() {
           </div>
         </div>
       </div>
+      <PopupModal
+        isOpen={popup.isOpen}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        onClose={() => setPopup(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={popup.onConfirm}
+      />
     </div>
   );
 }

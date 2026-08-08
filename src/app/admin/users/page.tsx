@@ -5,12 +5,21 @@ import { Search, ChevronLeft, ChevronRight, Shield, Ban, Trash2, UserCheck } fro
 import { cn } from "@/lib/utils";
 import api from "@/lib/api";
 
+import { PopupModal, PopupType } from "@/components/ui/PopupModal";
+
 export default function AdminUsers() {
   const [users, setUsers] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [popup, setPopup] = useState<{
+    isOpen: boolean;
+    type?: PopupType;
+    title?: string;
+    message: string;
+    onConfirm?: () => void;
+  }>({ isOpen: false, message: "" });
 
   useEffect(() => {
     fetchData();
@@ -42,14 +51,32 @@ export default function AdminUsers() {
   };
 
   const deleteUser = async (id: string) => {
-    if (confirm("Are you sure you want to delete this user?")) {
-      try {
-        await api.delete(`/admin/users/${id}`);
-        setUsers(us => us.filter(u => u.id !== id));
-      } catch (error) {
-        console.error("Failed to delete user", error);
+    setPopup({
+      isOpen: true,
+      type: "confirm",
+      title: "Hapus Pengguna?",
+      message: "Apakah Anda yakin ingin menghapus pengguna ini secara permanen?",
+      onConfirm: async () => {
+        try {
+          await api.delete(`/admin/users/${id}`);
+          setUsers(us => us.filter(u => u.id !== id));
+          setPopup({
+            isOpen: true,
+            type: "success",
+            title: "Pengguna Dihapus",
+            message: "Pengguna telah berhasil dihapus dari sistem."
+          });
+        } catch (error) {
+          console.error("Failed to delete user", error);
+          setPopup({
+            isOpen: true,
+            type: "error",
+            title: "Gagal Menghapus",
+            message: "Gagal menghapus pengguna dari database."
+          });
+        }
       }
-    }
+    });
   };
 
   const filtered = users.filter(u => {
@@ -189,6 +216,15 @@ export default function AdminUsers() {
           </div>
         </div>
       </div>
+
+      <PopupModal
+        isOpen={popup.isOpen}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        onClose={() => setPopup(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={popup.onConfirm}
+      />
     </div>
   );
 }
