@@ -161,9 +161,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           >
             <Icon className="w-5 h-5 shrink-0" />
             {label}
-            {id === "/admin/bookings" && (
-              <span className="ml-auto bg-yellow-400 text-gray-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full">4</span>
-            )}
           </Link>
         ))}
       </nav>
