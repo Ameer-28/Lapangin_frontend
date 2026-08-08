@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Search, BookMarked, Heart, User, Calendar, MapPin } from "lucide-react";
+import { Bell, Search, BookMarked, Heart, User, Calendar, MapPin, Check } from "lucide-react";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/data";
@@ -19,6 +19,9 @@ export default function DashboardPage() {
   const [upcoming, setUpcoming] = useState<any[]>([]);
   const [favorites, setFavorites] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifOpen, setNotifOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -45,6 +48,48 @@ export default function DashboardPage() {
 
     fetchData();
   }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      const [notifRes, countRes] = await Promise.all([
+        api.get("/notifications?limit=10"),
+        api.get("/notifications/unread-count"),
+      ]);
+      const nd = notifRes.data;
+      setNotifications(nd?.items || nd?.data || (Array.isArray(nd) ? nd : []));
+      setUnreadCount(countRes.data?.unreadCount || 0);
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    if (!loading) fetchNotifications();
+  }, [loading]);
+
+  const markAllRead = async () => {
+    try {
+      await api.patch("/notifications/read-all");
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch (e) {}
+  };
+
+  const markOneRead = async (id: string) => {
+    try {
+      await api.patch(`/notifications/${id}/read`);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (e) {}
+  };
+
+  const timeAgo = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "baru saja";
+    if (mins < 60) return `${mins} mnt lalu`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs} jam lalu`;
+    return `${Math.floor(hrs / 24)} hari lalu`;
+  };
 
   if (loading) {
     return <div className="flex h-[50vh] items-center justify-center text-gray-500">Loading dashboard...</div>;
@@ -74,10 +119,52 @@ export default function DashboardPage() {
           </h1>
           <p className="text-gray-500 mt-1">Ready to play? Here's your overview.</p>
         </div>
-        <button className="relative p-2.5 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-          <Bell className="w-5 h-5 text-gray-600" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#16A34A] rounded-full" />
-        </button>
+        <div className="relative">
+          <button onClick={() => { setNotifOpen(!notifOpen); if (!notifOpen) fetchNotifications(); }} className="relative p-2.5 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+            <Bell className="w-5 h-5 text-gray-600" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-white text-[10px] font-bold">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </button>
+          {notifOpen && (
+            <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                <span className="font-bold text-gray-900 text-sm">Notifikasi</span>
+                {unreadCount > 0 && (
+                  <button onClick={markAllRead} className="text-xs text-[#16A34A] font-semibold hover:underline flex items-center gap-1">
+                    <Check className="w-3 h-3" /> Tandai semua
+                  </button>
+                )}
+              </div>
+              <div className="max-h-72 overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-gray-400 text-sm">Belum ada notifikasi</div>
+                ) : (
+                  notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      onClick={() => { if (!n.isRead) markOneRead(n.id); }}
+                      className={cn(
+                        "flex items-start gap-3 px-4 py-3 border-b border-gray-50 last:border-0 cursor-pointer transition-colors",
+                        n.isRead ? "bg-white hover:bg-gray-50" : "bg-green-50/50 hover:bg-green-50"
+                      )}
+                    >
+                      <div className={cn("w-2 h-2 rounded-full mt-1.5 shrink-0", n.type === "booking" ? "bg-blue-500" : n.type === "review" ? "bg-yellow-500" : "bg-green-500")} />
+                      <div className="min-w-0 flex-1">
+                        <p className={cn("text-xs leading-snug", n.isRead ? "text-gray-600" : "text-gray-900 font-semibold")}>{n.title}</p>
+                        <p className="text-gray-500 text-[11px] mt-0.5 line-clamp-2">{n.message}</p>
+                        <p className="text-gray-400 text-[10px] mt-1">{timeAgo(n.createdAt)}</p>
+                      </div>
+                      {!n.isRead && <div className="w-2 h-2 rounded-full bg-[#16A34A] mt-1.5 shrink-0" />}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Stats */}

@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookMarked, Calendar, Clock, Download, RefreshCw, X } from "lucide-react";
+import { BookMarked, Calendar, Clock, Download, RefreshCw, X, Star } from "lucide-react";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/data";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function HistoryPage() {
   const router = useRouter();
@@ -15,11 +16,27 @@ export default function HistoryPage() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [reviewBookingId, setReviewBookingId] = useState<string | null>(null);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewedBookings, setReviewedBookings] = useState<Set<string>>(new Set());
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  const checkReviews = async (bookingItems: any[]) => {
+    const reviewed = new Set<string>();
+    for (const b of bookingItems) {
+      if (b.review) reviewed.add(b.id);
+    }
+    setReviewedBookings(reviewed);
+  };
+
   const fetchBookings = async () => {
     try {
       const res = await api.get("/bookings");
       const raw = res.data;
-      setBookings(Array.isArray(raw) ? raw : (raw?.items || raw?.data || []));
+      const fetchedBookings = Array.isArray(raw) ? raw : (raw?.items || raw?.data || []);
+      setBookings(fetchedBookings);
+      checkReviews(fetchedBookings);
     } catch (error) {
       console.error("Error fetching bookings:", error);
     } finally {
@@ -30,6 +47,27 @@ export default function HistoryPage() {
   useEffect(() => {
     fetchBookings();
   }, []);
+
+  const handleSubmitReview = async () => {
+    if (!reviewBookingId || reviewRating === 0) return;
+    setSubmittingReview(true);
+    try {
+      await api.post('/reviews', {
+        bookingId: reviewBookingId,
+        rating: reviewRating,
+        comment: reviewComment || undefined,
+      });
+      setReviewedBookings(prev => new Set(prev).add(reviewBookingId));
+      setReviewBookingId(null);
+      setReviewRating(0);
+      setReviewComment('');
+      alert('Review berhasil dikirim! ⭐');
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Gagal mengirim review');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   const handleCancel = async (id: string) => {
     if (!confirm("Are you sure you want to cancel this booking?")) return;
@@ -96,6 +134,17 @@ export default function HistoryPage() {
                   <span className="font-bold text-[#16A34A] text-lg">{formatPrice(b.total ?? b.totalPrice ?? 0)}</span>
                   <div className="flex gap-2">
                     {b.status === "completed" && (
+                      reviewedBookings.has(b.id) ? (
+                        <span className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 rounded-xl text-xs font-semibold text-gray-500 cursor-not-allowed">
+                          ✅ Reviewed
+                        </span>
+                      ) : (
+                        <button onClick={() => setReviewBookingId(b.id)} className="flex items-center gap-1.5 px-4 py-2 border border-yellow-400 text-yellow-600 bg-yellow-50 rounded-xl text-xs font-semibold hover:bg-yellow-100 transition-colors">
+                          <Star className="w-3.5 h-3.5 fill-current" /> Beri Rating
+                        </button>
+                      )
+                    )}
+                    {b.status === "completed" && (
                       <button className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:border-gray-300 transition-colors">
                         <Download className="w-3.5 h-3.5" /> Receipt
                       </button>
@@ -117,6 +166,91 @@ export default function HistoryPage() {
           </div>
         ))}
       </div>
+
+      {/* Review Modal */}
+      <AnimatePresence>
+        {reviewBookingId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => {
+                setReviewBookingId(null);
+                setReviewRating(0);
+                setReviewComment('');
+              }}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden p-6"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900">Beri Rating & Review</h3>
+                <button
+                  onClick={() => {
+                    setReviewBookingId(null);
+                    setReviewRating(0);
+                    setReviewComment('');
+                  }}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex gap-1 justify-center mb-6">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setReviewRating(star)}
+                    className="p-1 transition-colors"
+                  >
+                    <Star
+                      className={`w-10 h-10 ${star <= reviewRating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200'}`}
+                    />
+                  </button>
+                ))}
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Komentar (Opsional)</label>
+                <textarea
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="Bagaimana pengalaman Anda?"
+                  rows={4}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm placeholder-gray-400 focus:outline-none focus:border-[#16A34A] focus:ring-1 focus:ring-[#16A34A] resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setReviewBookingId(null);
+                    setReviewRating(0);
+                    setReviewComment('');
+                  }}
+                  className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handleSubmitReview}
+                  disabled={reviewRating === 0 || submittingReview}
+                  className="flex-1 px-4 py-2.5 bg-[#16A34A] text-white rounded-xl font-semibold hover:bg-[#15803d] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {submittingReview ? 'Mengirim...' : 'Kirim Review'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

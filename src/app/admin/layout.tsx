@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { LayoutDashboard, Building2, BookOpen, Users, BarChart2, Sliders, LogOut, Globe, Menu, Search, Bell } from "lucide-react";
+import { LayoutDashboard, Building2, BookOpen, Users, BarChart2, Sliders, LogOut, Globe, Menu, Search, Bell, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import api from "@/lib/api";
 
@@ -14,6 +14,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const [adminUser, setAdminUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const [notifRes, countRes] = await Promise.all([
+        api.get("/notifications?limit=10"),
+        api.get("/notifications/unread-count"),
+      ]);
+      const notifData = notifRes.data;
+      setNotifications(notifData?.items || notifData?.data || (Array.isArray(notifData) ? notifData : []));
+      setUnreadCount(countRes.data?.unreadCount || 0);
+    } catch (e) {
+      // silently fail
+    }
+  }, []);
 
   useEffect(() => {
     if (pathname === "/admin/login") {
@@ -34,12 +50,56 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         } else {
           setAdminUser(res.data);
           setLoading(false);
+          fetchNotifications();
         }
       })
       .catch(() => {
         router.push("/admin/login");
       });
-  }, [pathname, router]);
+  }, [pathname, router, fetchNotifications]);
+
+  // Refresh notifications every 30 seconds
+  useEffect(() => {
+    if (!adminUser) return;
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [adminUser, fetchNotifications]);
+
+  const markAllRead = async () => {
+    try {
+      await api.patch("/notifications/read-all");
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch (e) {}
+  };
+
+  const markOneRead = async (id: string) => {
+    try {
+      await api.patch(`/notifications/${id}/read`);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (e) {}
+  };
+
+  const timeAgo = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+  };
+
+  const dotColor = (type: string) => {
+    switch (type) {
+      case "booking": return "bg-blue-500";
+      case "payment": return "bg-green-500";
+      case "review": return "bg-yellow-500";
+      default: return "bg-gray-400";
+    }
+  };
 
   const navItems = [
     { id: "/admin", label: "Overview", Icon: LayoutDashboard },
@@ -164,29 +224,48 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <input placeholder="Quick search…" className="pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-green-100 transition-all w-48" />
               </div>
               <div className="relative">
-                <button onClick={() => setNotifOpen(!notifOpen)} className="relative p-2.5 bg-gray-50 border border-gray-200 rounded-xl hover:border-gray-300 transition-colors">
+                <button onClick={() => { setNotifOpen(!notifOpen); if (!notifOpen) fetchNotifications(); }} className="relative p-2.5 bg-gray-50 border border-gray-200 rounded-xl hover:border-gray-300 transition-colors">
                   <Bell className="w-4.5 h-4.5 text-gray-600" />
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-white text-[10px] font-bold">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
                 </button>
                 {notifOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-72 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden">
+                  <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
                       <span className="font-bold text-gray-900 text-sm">Notifications</span>
-                      <span className="text-xs text-[#16A34A] font-semibold">3 new</span>
+                      {unreadCount > 0 && (
+                        <button onClick={markAllRead} className="text-xs text-[#16A34A] font-semibold hover:underline flex items-center gap-1">
+                          <Check className="w-3 h-3" /> Mark all read
+                        </button>
+                      )}
                     </div>
-                    {[
-                      { text: "New booking BK-2025-008 requires review", time: "2m ago",  dot: "bg-blue-500" },
-                      { text: "User Dewi Rahayu reported a payment issue", time: "15m ago", dot: "bg-red-500"  },
-                      { text: "Venue 'Kickoff Arena' needs approval",      time: "1h ago",  dot: "bg-yellow-500" },
-                    ].map((n, i) => (
-                      <div key={i} className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 border-b border-gray-50 last:border-0 cursor-pointer">
-                        <div className={cn("w-2 h-2 rounded-full mt-1.5 shrink-0", n.dot)} />
-                        <div>
-                          <p className="text-gray-800 text-xs leading-snug">{n.text}</p>
-                          <p className="text-gray-400 text-xs mt-0.5">{n.time}</p>
-                        </div>
-                      </div>
-                    ))}
+                    <div className="max-h-72 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="px-4 py-8 text-center text-gray-400 text-sm">No notifications yet</div>
+                      ) : (
+                        notifications.map((n) => (
+                          <div
+                            key={n.id}
+                            onClick={() => { if (!n.isRead) markOneRead(n.id); }}
+                            className={cn(
+                              "flex items-start gap-3 px-4 py-3 border-b border-gray-50 last:border-0 cursor-pointer transition-colors",
+                              n.isRead ? "bg-white hover:bg-gray-50" : "bg-green-50/50 hover:bg-green-50"
+                            )}
+                          >
+                            <div className={cn("w-2 h-2 rounded-full mt-1.5 shrink-0", dotColor(n.type))} />
+                            <div className="min-w-0 flex-1">
+                              <p className={cn("text-xs leading-snug", n.isRead ? "text-gray-600" : "text-gray-900 font-semibold")}>{n.title}</p>
+                              <p className="text-gray-500 text-[11px] mt-0.5 line-clamp-2">{n.message}</p>
+                              <p className="text-gray-400 text-[10px] mt-1">{timeAgo(n.createdAt)}</p>
+                            </div>
+                            {!n.isRead && <div className="w-2 h-2 rounded-full bg-[#16A34A] mt-1.5 shrink-0" />}
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

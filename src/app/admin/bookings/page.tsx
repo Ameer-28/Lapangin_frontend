@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, ChevronLeft, ChevronRight, Eye, XCircle, Download } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Eye, XCircle, Download, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/data";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import api from "@/lib/api";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function AdminBookings() {
   const [filter, setFilter] = useState("all");
@@ -13,6 +14,7 @@ export default function AdminBookings() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [viewBooking, setViewBooking] = useState<any>(null);
 
   useEffect(() => {
     fetchData();
@@ -31,6 +33,16 @@ export default function AdminBookings() {
       console.error("Failed to load bookings", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleView = async (id: string) => {
+    try {
+      const res = await api.get(`/admin/bookings/${id}`);
+      setViewBooking(res.data.data || res.data);
+    } catch (error) {
+      console.error('Failed to load booking details', error);
+      alert('Failed to load booking details');
     }
   };
 
@@ -123,7 +135,7 @@ export default function AdminBookings() {
                     <td className="px-4 py-4"><StatusBadge status={b.status} /></td>
                     <td className="px-4 py-4">
                       <div className="flex gap-1">
-                        <button className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View">
+                        <button onClick={() => handleView(b.id)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View">
                           <Eye className="w-4 h-4" />
                         </button>
                         {(b.status === "upcoming" || b.status === "confirmed") && (
@@ -151,6 +163,112 @@ export default function AdminBookings() {
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {viewBooking && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setViewBooking(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                <h3 className="text-xl font-bold text-gray-900">Booking Details</h3>
+                <button
+                  onClick={() => setViewBooking(null)}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="p-6 overflow-y-auto space-y-6">
+                <div>
+                  <p className="text-sm text-gray-500 mb-1">Booking Code</p>
+                  <p className="font-bold text-gray-900">{viewBooking.bookingCode || `BK-${viewBooking.id}`}</p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Customer</p>
+                    <p className="font-semibold text-gray-900">{viewBooking.user?.fullName || viewBooking.user?.name || '-'}</p>
+                    <p className="text-sm text-gray-500">{viewBooking.user?.email || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Venue</p>
+                    <p className="font-semibold text-gray-900">{viewBooking.venue?.name || '-'}</p>
+                    <p className="text-sm text-gray-500">{viewBooking.venue?.city || '-'}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Date</p>
+                    <p className="font-semibold text-gray-900">
+                      {viewBooking.date ? new Date(viewBooking.date).toLocaleDateString() : '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Time</p>
+                    <p className="font-semibold text-gray-900">{viewBooking.startTime || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Duration</p>
+                    <p className="font-semibold text-gray-900">{viewBooking.duration ? `${viewBooking.duration}h` : '-'}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Subtotal</span>
+                    <span className="font-medium">{formatPrice(viewBooking.subtotal || viewBooking.totalPrice || 0)}</span>
+                  </div>
+                  {viewBooking.discount > 0 && (
+                    <div className="flex justify-between text-sm text-red-600">
+                      <span>Discount</span>
+                      <span>-{formatPrice(viewBooking.discount)}</span>
+                    </div>
+                  )}
+                  {viewBooking.serviceFee > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Service Fee</span>
+                      <span className="font-medium">{formatPrice(viewBooking.serviceFee)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold text-lg pt-3 border-t border-gray-100">
+                    <span>Total</span>
+                    <span className="text-[#16A34A]">{formatPrice(viewBooking.total || viewBooking.totalPrice || 0)}</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 pt-6 border-t border-gray-100">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Payment</p>
+                    <div className="flex flex-col gap-1">
+                      <span className="font-medium text-gray-900 uppercase">{viewBooking.paymentMethod || '-'}</span>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded w-fit ${viewBooking.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                        {viewBooking.paymentStatus || 'pending'}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-2">Booking Status</p>
+                    <StatusBadge status={viewBooking.status} />
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
