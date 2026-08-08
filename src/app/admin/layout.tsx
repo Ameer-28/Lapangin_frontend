@@ -81,6 +81,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     } catch (e) {}
   };
 
+  const handleNotificationClick = async (n: any) => {
+    if (!n.isRead) {
+      markOneRead(n.id);
+    }
+    setNotifOpen(false);
+    if (n.type === "booking" || n.type === "payment") {
+      router.push("/admin/bookings");
+    } else if (n.type === "review") {
+      router.push("/admin/venues");
+    } else {
+      router.push("/admin");
+    }
+  };
+
   const timeAgo = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
@@ -249,7 +263,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         notifications.map((n) => (
                           <div
                             key={n.id}
-                            onClick={() => { if (!n.isRead) markOneRead(n.id); }}
+                            onClick={() => handleNotificationClick(n)}
                             className={cn(
                               "flex items-start gap-3 px-4 py-3 border-b border-gray-50 last:border-0 cursor-pointer transition-colors",
                               n.isRead ? "bg-white hover:bg-gray-50" : "bg-green-50/50 hover:bg-green-50"

@@ -91,6 +91,16 @@ export default function DashboardPage() {
     return `${Math.floor(hrs / 24)} hari lalu`;
   };
 
+  const handleNotificationClick = async (n: any) => {
+    if (!n.isRead) {
+      markOneRead(n.id);
+    }
+    setNotifOpen(false);
+    if (n.type === "booking" || n.type === "payment" || n.type === "review") {
+      router.push("/history");
+    }
+  };
+
   if (loading) {
     return <div className="flex h-[50vh] items-center justify-center text-gray-500">Loading dashboard...</div>;
   }
@@ -145,7 +155,7 @@ export default function DashboardPage() {
                   notifications.map((n) => (
                     <div
                       key={n.id}
-                      onClick={() => { if (!n.isRead) markOneRead(n.id); }}
+                      onClick={() => handleNotificationClick(n)}
                       className={cn(
                         "flex items-start gap-3 px-4 py-3 border-b border-gray-50 last:border-0 cursor-pointer transition-colors",
                         n.isRead ? "bg-white hover:bg-gray-50" : "bg-green-50/50 hover:bg-green-50"
