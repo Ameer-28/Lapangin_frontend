@@ -155,10 +155,12 @@ export default function VenueDetailPage() {
               {(() => {
                 const uniqueFacilities: any[] = Array.from(
                   new Map(
-                    (venue.facilities || []).map((f: string) => {
-                      const item = FACILITY_MAP[f] ?? { label: f, Icon: Award };
-                      return [item.label, { key: f, ...item }];
-                    })
+                    (venue.facilities || [])
+                      .filter((f: string) => FACILITY_MAP[f])
+                      .map((f: string) => {
+                        const item = FACILITY_MAP[f];
+                        return [item.label, { key: f, ...item }];
+                      })
                   ).values()
                 );
                 return uniqueFacilities.map(({ key, label, Icon }) => (

@@ -14,7 +14,6 @@ export const FACILITY_MAP: Record<string, { label: string; Icon: React.FC<{ clas
   parking:    { label: "Parkir",             Icon: Car },
   wifi:       { label: "WiFi & Listrik",     Icon: Wifi },
   // Backward compatibility aliases
-  ac:         { label: "Ruang AC",           Icon: Wifi },
   canteen:    { label: "Kantin",             Icon: Coffee },
   musholla:   { label: "Musholla",           Icon: Compass },
 };
