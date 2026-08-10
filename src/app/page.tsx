@@ -32,20 +32,28 @@ export default function LandingPage() {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [venues, setVenues] = useState<any[]>([]);
+  const [realReviews, setRealReviews] = useState<any[]>([]);
   const router = useRouter();
 
   useEffect(() => {
-    const fetchVenues = async () => {
+    const fetchData = async () => {
       try {
-        const res = await api.get("/venues");
-        const raw = res.data;
+        const [venuesRes, reviewsRes] = await Promise.all([
+          api.get("/venues"),
+          api.get("/reviews/recent?limit=3").catch(() => ({ data: [] }))
+        ]);
+        const raw = venuesRes.data;
         const list = Array.isArray(raw) ? raw : (raw?.items || raw?.data || []);
         setVenues(list.slice(0, 3));
+
+        const rawRev = reviewsRes.data;
+        const revList = Array.isArray(rawRev) ? rawRev : (rawRev?.items || rawRev?.data || []);
+        setRealReviews(revList);
       } catch (err) {
-        console.error("Failed to fetch venues for landing page", err);
+        console.error("Failed to fetch data for landing page", err);
       }
     };
-    fetchVenues();
+    fetchData();
   }, []);
 
   return (
@@ -215,19 +223,46 @@ export default function LandingPage() {
           <p className="text-gray-500">Join thousands of happy futsal enthusiasts</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {TESTIMONIALS.map(t => (
-            <div key={t.name} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col">
-              <Stars rating={t.rating} size="md" />
-              <p className="text-gray-600 mt-4 mb-6 leading-relaxed text-sm flex-1">"{t.text}"</p>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-[#16A34A] to-[#22C55E] rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">{t.initials}</div>
-                <div>
-                  <p className="font-semibold text-gray-900 text-sm">{t.name}</p>
-                  <p className="text-gray-400 text-xs">{t.role}</p>
+          {realReviews.length > 0 ? (
+            realReviews.map((r: any) => {
+              const userName = r.user?.fullName || r.user?.email || "Pemain Lapang.in";
+              const initials = userName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
+              const venueInfo = r.venue?.name ? `${r.venue.name} (${r.venue.city || 'Malang'})` : "Verified Player";
+              return (
+                <div key={r.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow">
+                  <div>
+                    <Stars rating={r.rating || 5} size="md" />
+                    <p className="text-gray-600 mt-4 mb-6 leading-relaxed text-sm">
+                      "{r.comment || "Sangat puas dengan kualitas lapangan dan kemudahan pemesanan di Lapang.in!"}"
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 border-t border-gray-50 pt-4">
+                    <div className="w-10 h-10 bg-gradient-to-br from-[#16A34A] to-[#22C55E] rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">
+                      {initials}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900 text-sm truncate">{userName}</p>
+                      <p className="text-[#16A34A] text-xs font-medium truncate">{venueInfo}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            TESTIMONIALS.map(t => (
+              <div key={t.name} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col">
+                <Stars rating={t.rating} size="md" />
+                <p className="text-gray-600 mt-4 mb-6 leading-relaxed text-sm flex-1">"{t.text}"</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-[#16A34A] to-[#22C55E] rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">{t.initials}</div>
+                  <div>
+                    <p className="font-semibold text-gray-900 text-sm">{t.name}</p>
+                    <p className="text-gray-400 text-xs">{t.role}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </section>
 
