@@ -35,21 +35,7 @@ export function Navbar() {
           <span className="text-white font-bold text-lg tracking-tight">Lapang.in</span>
         </Link>
 
-        <div className="hidden md:flex items-center gap-8">
-          {[
-            { label: "Browse Fields", href: "/venues" },
-            { label: "How It Works", href: "/#how-it-works" },
-            { label: "Pricing", href: "/#pricing" }
-          ].map(item => (
-            <Link
-              key={item.label}
-              href={item.href}
-              className="text-gray-300 hover:text-white text-sm transition-colors"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </div>
+        {/* Middle links removed as requested */}
 
         <div className="hidden md:flex items-center gap-3">
           {isLoggedIn ? (
@@ -80,9 +66,6 @@ export function Navbar() {
 
       {open && (
         <div className="md:hidden bg-[#0F172A] border-t border-white/10 px-4 py-4 space-y-2">
-          <Link href="/venues" onClick={() => setOpen(false)} className="block w-full text-left text-gray-300 text-sm py-2.5 border-b border-white/5">
-            Browse Fields
-          </Link>
           {isLoggedIn ? (
             <>
               <Link href="/dashboard" onClick={() => setOpen(false)} className="block w-full text-left text-gray-300 text-sm py-2.5 border-b border-white/5">
