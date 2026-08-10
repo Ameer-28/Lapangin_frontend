@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, ChevronLeft, ChevronRight, Shield, Ban, Trash2, UserCheck } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Shield, Ban, Trash2, UserCheck, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import api from "@/lib/api";
 
@@ -28,7 +28,7 @@ export default function AdminUsers() {
   const fetchData = async () => {
     try {
       const [usersRes, statsRes] = await Promise.all([
-        api.get("/admin/users"),
+        api.get("/admin/users?limit=1000"),
         api.get("/admin/users/stats"),
       ]);
       const raw = usersRes.data;
@@ -83,8 +83,10 @@ export default function AdminUsers() {
     const matchF = filter === "all" || u.status === filter || (filter === "admin" && u.role === "admin");
     const name = u.fullName || u.name || "";
     const email = u.email || "";
+    const phone = u.phone || "";
     const matchS = name.toLowerCase().includes(search.toLowerCase()) ||
-                   email.toLowerCase().includes(search.toLowerCase());
+                   email.toLowerCase().includes(search.toLowerCase()) ||
+                   phone.toLowerCase().includes(search.toLowerCase());
     return matchF && matchS;
   });
 
@@ -143,7 +145,7 @@ export default function AdminUsers() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                {["User", "Email", "Role", "City", "Status", "Joined", "Actions"].map(h => (
+                {["User", "Email", "Phone", "Role", "City", "Status", "Joined", "Actions"].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -161,7 +163,17 @@ export default function AdminUsers() {
                         <span className="text-sm font-semibold text-gray-900 whitespace-nowrap">{name}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-sm text-gray-500">{u.email}</td>
+                    <td className="px-4 py-4 text-sm text-gray-500 max-w-[200px] truncate">{u.email}</td>
+                    <td className="px-4 py-4 text-sm text-gray-500 whitespace-nowrap">
+                      {u.phone ? (
+                        <span className="flex items-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5 text-gray-400" />
+                          {u.phone}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
+                    </td>
                     <td className="px-4 py-4">
                       <span className={cn("text-xs font-bold px-2.5 py-1 rounded-full",
                         u.role === "admin" ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-600"
@@ -209,11 +221,6 @@ export default function AdminUsers() {
         </div>
         <div className="px-4 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
           <p className="text-xs text-gray-500">Showing {filtered.length} of {users.length} users</p>
-          <div className="flex items-center gap-1">
-            <button className="w-7 h-7 rounded-lg border border-gray-200 bg-white flex items-center justify-center"><ChevronLeft className="w-3.5 h-3.5 text-gray-400" /></button>
-            <button className="w-7 h-7 rounded-lg bg-[#16A34A] text-white text-xs font-bold">1</button>
-            <button className="w-7 h-7 rounded-lg border border-gray-200 bg-white flex items-center justify-center"><ChevronRight className="w-3.5 h-3.5 text-gray-400" /></button>
-          </div>
         </div>
       </div>
 
