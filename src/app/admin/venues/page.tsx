@@ -39,7 +39,7 @@ export default function AdminVenues() {
 
   const fetchVenues = async () => {
     try {
-      const res = await api.get("/admin/venues");
+      const res = await api.get("/admin/venues?limit=1000");
       const raw = res.data;
       setVenues(Array.isArray(raw) ? raw : (raw?.items || raw?.data || []));
     } catch (error) {
@@ -188,16 +188,31 @@ export default function AdminVenues() {
 
   return (
     <div className="space-y-5">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: "Total Venues", value: venues.length, color: "text-gray-900" },
+          { label: "Active Venues", value: venues.filter(v => v.isActive).length, color: "text-green-600" },
+          { label: "Indoor", value: venues.filter(v => v.type === "Indoor").length, color: "text-blue-600" },
+          { label: "Outdoor", value: venues.filter(v => v.type === "Outdoor").length, color: "text-yellow-600" },
+        ].map(s => (
+          <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4 text-center shadow-sm">
+            <p className={cn("text-2xl font-bold", s.color)}>{s.value}</p>
+            <p className="text-gray-500 text-xs font-medium mt-0.5">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
       {/* Topbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
         <div className="relative">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search venues…"
-            className="pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-green-100 transition-all w-64"
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search venue by name or city…"
+            className="pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-green-100 transition-all w-full sm:w-72"
           />
         </div>
         <button onClick={() => { setEditId(null); setImageUrl(""); setShowAdd(true); }}
-          className="flex items-center gap-2 bg-[#16A34A] text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#15803d] transition-colors"
+          className="flex items-center justify-center gap-2 bg-[#16A34A] text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#15803d] transition-colors shadow-sm"
         >
           <Plus className="w-4 h-4" /> Add Venue
         </button>
