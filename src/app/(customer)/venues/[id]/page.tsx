@@ -152,15 +152,22 @@ export default function VenueDetailPage() {
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
             <h2 className="font-bold text-gray-900 mb-4">Facilities</h2>
             <div className="grid grid-cols-3 sm:grid-cols-5 gap-4">
-              {venue.facilities?.map((f: string) => {
-                const { label, Icon } = FACILITY_MAP[f] ?? { label: f, Icon: Award };
-                return (
-                  <div key={f} className="flex flex-col items-center gap-2 p-3 bg-green-50 rounded-xl">
+              {(() => {
+                const uniqueFacilities: any[] = Array.from(
+                  new Map(
+                    (venue.facilities || []).map((f: string) => {
+                      const item = FACILITY_MAP[f] ?? { label: f, Icon: Award };
+                      return [item.label, { key: f, ...item }];
+                    })
+                  ).values()
+                );
+                return uniqueFacilities.map(({ key, label, Icon }) => (
+                  <div key={key} className="flex flex-col items-center gap-2 p-3 bg-green-50 rounded-xl">
                     <Icon className="w-5 h-5 text-[#16A34A]" />
                     <span className="text-gray-700 text-xs font-medium text-center">{label}</span>
                   </div>
-                );
-              })}
+                ));
+              })()}
             </div>
           </div>
 

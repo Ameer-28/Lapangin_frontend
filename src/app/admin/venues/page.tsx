@@ -366,7 +366,7 @@ export default function AdminVenues() {
 
       {/* Table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="w-full">
+        <div className="w-full overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
