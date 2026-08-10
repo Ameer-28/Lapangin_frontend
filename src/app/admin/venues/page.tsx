@@ -31,12 +31,13 @@ export default function AdminVenues() {
   const editingVenue = venues.find(v => v.id === editId);
 
   useEffect(() => {
+    const defaultFacs = ["lighting", "safety_net", "locker", "shower", "mosque", "cafeteria", "tribune", "parking", "wifi"];
     if (editingVenue) {
       setImageUrl(editingVenue.imageUrl || editingVenue.image || "");
-      setSelectedFacilities(editingVenue.facilities || ["parking", "shower", "locker", "wifi", "cafeteria"]);
+      setSelectedFacilities(editingVenue.facilities?.length ? editingVenue.facilities : defaultFacs);
     } else {
       setImageUrl("");
-      setSelectedFacilities(["parking", "shower", "locker", "wifi", "cafeteria"]);
+      setSelectedFacilities(defaultFacs);
     }
   }, [editId, showAdd]);
 
@@ -318,13 +319,15 @@ export default function AdminVenues() {
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Facilities</label>
                   <div className="flex flex-wrap gap-2 pt-1">
                     {[
-                      { id: "parking", label: "Parking" },
-                      { id: "shower", label: "Shower" },
-                      { id: "locker", label: "Locker" },
-                      { id: "wifi", label: "Free WiFi" },
-                      { id: "cafeteria", label: "Cafeteria" },
-                      { id: "tribune", label: "Tribune" },
-                      { id: "ac", label: "AC Lounge" },
+                      { id: "lighting", label: "Pencahayaan Lampu Sorot" },
+                      { id: "safety_net", label: "Jaring Pengaman & Skor" },
+                      { id: "locker", label: "Ruang Ganti & Loker" },
+                      { id: "shower", label: "Shower & Toilet" },
+                      { id: "mosque", label: "Musholla & Wudhu" },
+                      { id: "cafeteria", label: "Kantin & Mini Cafe" },
+                      { id: "tribune", label: "Tribun Penonton" },
+                      { id: "parking", label: "Parkir Motor & Mobil" },
+                      { id: "wifi", label: "WiFi & Colokan Listrik" },
                     ].map(f => {
                       const active = selectedFacilities.includes(f.id);
                       return (
