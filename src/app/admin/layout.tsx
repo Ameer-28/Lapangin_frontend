@@ -199,52 +199,52 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="min-h-screen bg-[#F1F5F9] flex" style={{ fontFamily: "'Poppins','Inter',sans-serif" }}>
+    <div className="min-h-screen bg-[#F1F5F9] flex w-full max-w-full overflow-x-hidden" style={{ fontFamily: "'Poppins','Inter',sans-serif" }}>
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-60 bg-[#0F172A] fixed left-0 top-0 bottom-0">
+      <aside className="hidden lg:flex flex-col w-60 bg-[#0F172A] fixed left-0 top-0 bottom-0 z-40">
         <SidebarContent />
       </aside>
 
       {/* Mobile sidebar */}
       {sidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setSidebarOpen(false)} />
-          <aside className="relative flex flex-col w-64 bg-[#0F172A] h-full">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+          <aside className="relative flex flex-col w-64 bg-[#0F172A] h-full z-10 shadow-2xl">
             <SidebarContent />
           </aside>
         </div>
       )}
 
       {/* Main */}
-      <div className="flex-1 lg:ml-60 flex flex-col min-h-screen">
+      <div className="flex-1 min-w-0 w-full lg:ml-60 flex flex-col min-h-screen max-w-full overflow-x-hidden">
         {/* Topbar */}
-        <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between px-4 sm:px-6 h-14">
-            <div className="flex items-center gap-3">
-              <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-gray-500 p-1">
+        <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm w-full">
+          <div className="flex items-center justify-between px-3 sm:px-6 h-14 w-full min-w-0">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition-colors shrink-0">
                 <Menu className="w-5 h-5" />
               </button>
-              <div className="hidden sm:block">
-                <h1 className="text-gray-900 font-bold text-base">{pageTitles[pathname] ?? "Admin"}</h1>
-                <p className="text-gray-400 text-xs">Lapang.in Admin Portal</p>
+              <div className="min-w-0">
+                <h1 className="text-gray-900 font-bold text-sm sm:text-base truncate">{pageTitles[pathname] ?? "Admin"}</h1>
+                <p className="text-gray-400 text-[10px] sm:text-xs truncate hidden sm:block">Lapang.in Admin Portal</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="relative hidden sm:block">
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="relative hidden md:block">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input placeholder="Quick search…" className="pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-green-100 transition-all w-48" />
+                <input placeholder="Quick search…" className="pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-green-100 transition-all w-36 lg:w-48" />
               </div>
               <div className="relative">
-                <button onClick={() => { setNotifOpen(!notifOpen); if (!notifOpen) fetchNotifications(); }} className="relative p-2.5 bg-gray-50 border border-gray-200 rounded-xl hover:border-gray-300 transition-colors">
-                  <Bell className="w-4.5 h-4.5 text-gray-600" />
+                <button onClick={() => { setNotifOpen(!notifOpen); if (!notifOpen) fetchNotifications(); }} className="relative p-2 bg-gray-50 border border-gray-200 rounded-xl hover:border-gray-300 transition-colors">
+                  <Bell className="w-4 h-4 text-gray-600" />
                   {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-white text-[10px] font-bold">
+                    <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] bg-red-500 rounded-full border-2 border-white flex items-center justify-center text-white text-[9px] font-bold">
                       {unreadCount > 9 ? "9+" : unreadCount}
                     </span>
                   )}
                 </button>
                 {notifOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden">
+                  <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
                       <span className="font-bold text-gray-900 text-sm">Notifications</span>
                       {unreadCount > 0 && (
@@ -280,7 +280,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   </div>
                 )}
               </div>
-              <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center text-gray-900 font-bold text-xs">
+              <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center text-gray-900 font-bold text-xs shrink-0">
                 {(adminUser?.fullName || adminUser?.name || "SA").substring(0, 2).toUpperCase()}
               </div>
             </div>
@@ -288,7 +288,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-4 sm:p-6 overflow-y-auto">{children}</main>
+        <main className="flex-1 p-3 sm:p-6 overflow-y-auto w-full min-w-0 max-w-full">{children}</main>
       </div>
     </div>
   );

@@ -150,40 +150,40 @@ export default function AdminUsers() {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-gray-50 text-xs">
               {filtered.map(u => {
                 const name = u.fullName || u.name || "User";
                 return (
                   <tr key={u.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#16A34A] to-[#22C55E] flex items-center justify-center text-white text-xs font-bold shrink-0">
+                    <td className="px-3 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#16A34A] to-[#22C55E] flex items-center justify-center text-white text-[10px] font-bold shrink-0">
                           {name.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
                         </div>
-                        <span className="text-sm font-semibold text-gray-900 whitespace-nowrap">{name}</span>
+                        <span className="font-semibold text-gray-900 whitespace-nowrap max-w-[130px] truncate" title={name}>{name}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-sm text-gray-500 max-w-[200px] truncate">{u.email}</td>
-                    <td className="px-4 py-4 text-sm text-gray-500 whitespace-nowrap">
+                    <td className="px-3 py-3 text-gray-500 max-w-[160px] truncate" title={u.email}>{u.email}</td>
+                    <td className="px-3 py-3 text-gray-500 whitespace-nowrap">
                       {u.phone ? (
-                        <span className="flex items-center gap-1.5">
-                          <Phone className="w-3.5 h-3.5 text-gray-400" />
+                        <span className="flex items-center gap-1 text-xs">
+                          <Phone className="w-3 h-3 text-gray-400 shrink-0" />
                           {u.phone}
                         </span>
                       ) : (
                         <span className="text-gray-300">-</span>
                       )}
                     </td>
-                    <td className="px-4 py-4">
-                      <span className={cn("text-xs font-bold px-2.5 py-1 rounded-full",
+                    <td className="px-3 py-3">
+                      <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full",
                         u.role === "admin" ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-600"
                       )}>
                         {u.role === "admin" ? "Admin" : "User"}
                       </span>
                     </td>
-                    <td className="px-4 py-4 text-sm text-gray-500">{u.city || "-"}</td>
-                    <td className="px-4 py-4">
-                      <span className={cn("inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full",
+                    <td className="px-3 py-3 text-gray-500 whitespace-nowrap">{u.city || "-"}</td>
+                    <td className="px-3 py-3">
+                      <span className={cn("inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full",
                         u.status === "active" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
                       )}>
                         <div className={cn("w-1.5 h-1.5 rounded-full", u.status === "active" ? "bg-green-500" : "bg-red-500")} />

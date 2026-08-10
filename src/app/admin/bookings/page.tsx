@@ -147,38 +147,38 @@ export default function AdminBookings() {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-gray-50 text-xs">
               {filtered.map(b => {
                 const uName = b.user?.fullName || b.user?.name || "Customer";
                 return (
                   <tr key={b.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-4 py-4 text-sm font-bold text-gray-700">{b.bookingCode ? b.bookingCode : `BK-${b.id}`}</td>
-                    <td className="px-4 py-4">
+                    <td className="px-3 py-3 font-bold text-gray-700 whitespace-nowrap">{b.bookingCode ? b.bookingCode : `BK-${b.id}`}</td>
+                    <td className="px-3 py-3">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 bg-[#16A34A] rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                        <div className="w-6 h-6 bg-[#16A34A] rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0">
                           {uName.split(" ").map((w: string) => w[0]).join("").slice(0,2).toUpperCase()}
                         </div>
-                        <span className="text-sm text-gray-800 whitespace-nowrap">{uName}</span>
+                        <span className="text-gray-800 whitespace-nowrap max-w-[130px] truncate" title={uName}>{uName}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-sm text-gray-500 max-w-[130px] truncate">{b.venue?.name || "Venue"}</td>
-                    <td className="px-4 py-4 text-sm text-gray-500 whitespace-nowrap">
-                      <div>{b.date ? new Date(b.date).toLocaleDateString() : "-"}</div>
+                    <td className="px-3 py-3 text-gray-500 max-w-[120px] truncate" title={b.venue?.name || "Venue"}>{b.venue?.name || "Venue"}</td>
+                    <td className="px-3 py-3 text-gray-500 whitespace-nowrap">
+                      <div>{b.date ? new Date(b.date).toLocaleDateString("id-ID") : "-"}</div>
                     </td>
-                    <td className="px-4 py-4 text-sm font-bold text-gray-900 whitespace-nowrap">{formatPrice(b.total ?? b.totalPrice ?? 0)}</td>
-                    <td className="px-4 py-4"><StatusBadge status={b.status} /></td>
-                    <td className="px-4 py-4">
+                    <td className="px-3 py-3 font-bold text-gray-900 whitespace-nowrap">{formatPrice(b.total ?? b.totalPrice ?? 0)}</td>
+                    <td className="px-3 py-3"><StatusBadge status={b.status} /></td>
+                    <td className="px-3 py-3">
                       <div className="flex gap-1">
-                        <button onClick={() => handleView(b.id)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View">
-                          <Eye className="w-4 h-4" />
+                        <button onClick={() => handleView(b.id)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="View">
+                          <Eye className="w-3.5 h-3.5" />
                         </button>
                         {(b.status === "upcoming" || b.status === "confirmed") && (
-                          <button onClick={() => handleCancel(b.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Cancel">
-                            <XCircle className="w-4 h-4" />
+                          <button onClick={() => handleCancel(b.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Cancel">
+                            <XCircle className="w-3.5 h-3.5" />
                           </button>
                         )}
-                        <button onClick={() => setReceiptBooking(b)} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Download Receipt">
-                          <Download className="w-4 h-4" />
+                        <button onClick={() => setReceiptBooking(b)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Download Receipt">
+                          <Download className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>
