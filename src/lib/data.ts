@@ -1,5 +1,5 @@
 import {
-  Car, Droplets, Lock, Wifi, Coffee
+  Car, Droplets, Lock, Wifi, Coffee, Users, Wind
 } from "lucide-react";
 import React from "react";
 
@@ -9,6 +9,8 @@ export const FACILITY_MAP: Record<string, { label: string; Icon: React.FC<{ clas
   locker:    { label: "Locker",     Icon: Lock },
   wifi:      { label: "Free WiFi",  Icon: Wifi },
   cafeteria: { label: "Cafeteria",  Icon: Coffee },
+  tribune:   { label: "Tribune",    Icon: Users },
+  ac:        { label: "AC Lounge",  Icon: Wind },
 };
 
 export const MONTHS = ["January","February","March","April","May","June",

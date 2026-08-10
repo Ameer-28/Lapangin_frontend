@@ -164,33 +164,6 @@ export default function VenueDetailPage() {
             </div>
           </div>
 
-          {/* Available slots */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <h2 className="font-bold text-gray-900 mb-4">Available Time Slots — Today</h2>
-            <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
-              {TIME_SLOTS.map(slot => {
-                const booked = bookedSlots.includes(slot);
-                const selected = selSlot === slot;
-                return (
-                  <button key={slot} disabled={booked} onClick={() => setSelSlot(selected ? null : slot)}
-                    className={cx("py-2.5 rounded-xl text-xs font-semibold transition-all",
-                      booked   ? "bg-gray-100 text-gray-300 cursor-not-allowed" :
-                      selected ? "bg-[#16A34A] text-white shadow-md" :
-                                 "bg-green-50 text-[#16A34A] hover:bg-[#16A34A] hover:text-white"
-                    )}
-                  >
-                    {slot}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex items-center gap-4 mt-4 text-xs">
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-green-50 rounded border border-green-200" /><span className="text-gray-500">Available</span></div>
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-[#16A34A] rounded" /><span className="text-gray-500">Selected</span></div>
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-gray-100 rounded" /><span className="text-gray-500">Booked</span></div>
-            </div>
-          </div>
-
           {/* Reviews */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-5">
@@ -224,12 +197,6 @@ export default function VenueDetailPage() {
               <p className="text-3xl font-bold text-[#16A34A] mt-1">{formatPrice(venue.pricePerHour || venue.price || 0)}</p>
               <p className="text-gray-400 text-sm">per hour</p>
             </div>
-            {selSlot && (
-              <div className="bg-green-50 rounded-xl p-3 mb-4 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-[#16A34A] shrink-0" />
-                <span className="text-[#16A34A] text-sm font-medium">Selected: {selSlot}</span>
-              </div>
-            )}
             <div className="space-y-3 mb-5">
               {venue.facilities?.slice(0, 4).map((f: string) => {
                 const { label, Icon } = FACILITY_MAP[f] ?? { label: f, Icon: Check };
@@ -258,7 +225,7 @@ export default function VenueDetailPage() {
                   } catch (e) {}
                 }
                 const today = new Date().toISOString().split('T')[0];
-                router.push(`/bookings/new?venueId=${venue.id}&date=${today}${selSlot ? `&startTime=${selSlot}` : ''}`);
+                router.push(`/bookings/new?venueId=${venue.id}&date=${today}`);
               }} 
               className="w-full py-4 text-base"
             >

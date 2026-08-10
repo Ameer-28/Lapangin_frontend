@@ -27,13 +27,16 @@ export default function AdminVenues() {
     fetchVenues();
   }, []);
 
+  const [selectedFacilities, setSelectedFacilities] = useState<string[]>([]);
   const editingVenue = venues.find(v => v.id === editId);
 
   useEffect(() => {
     if (editingVenue) {
       setImageUrl(editingVenue.imageUrl || editingVenue.image || "");
+      setSelectedFacilities(editingVenue.facilities || ["parking", "shower", "locker", "wifi", "cafeteria"]);
     } else {
       setImageUrl("");
+      setSelectedFacilities(["parking", "shower", "locker", "wifi", "cafeteria"]);
     }
   }, [editId, showAdd]);
 
@@ -152,6 +155,8 @@ export default function AdminVenues() {
       openTime: String(rawData.openTime || "07:00").trim(),
       closeTime: String(rawData.closeTime || "23:00").trim(),
       type: (rawData.type === "Outdoor" ? "Outdoor" : "Indoor") as "Indoor" | "Outdoor",
+      description: String(rawData.description || "").trim() || undefined,
+      facilities: selectedFacilities,
       imageUrl: imageUrl || String(rawData.imageUrl || "").trim() || undefined,
     };
 
@@ -296,6 +301,53 @@ export default function AdminVenues() {
                     <option value="Indoor" className="text-gray-900 bg-white">Indoor</option>
                     <option value="Outdoor" className="text-gray-900 bg-white">Outdoor</option>
                   </select>
+                </div>
+
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">About Venue (Description)</label>
+                  <textarea
+                    name="description"
+                    rows={3}
+                    placeholder="Tuliskan deskripsi lengkap tempat futsal..."
+                    defaultValue={editingVenue?.description || ""}
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-[#16A34A]"
+                  />
+                </div>
+
+                <div className="col-span-2 space-y-1.5">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Facilities</label>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {[
+                      { id: "parking", label: "Parking" },
+                      { id: "shower", label: "Shower" },
+                      { id: "locker", label: "Locker" },
+                      { id: "wifi", label: "Free WiFi" },
+                      { id: "cafeteria", label: "Cafeteria" },
+                      { id: "tribune", label: "Tribune" },
+                      { id: "ac", label: "AC Lounge" },
+                    ].map(f => {
+                      const active = selectedFacilities.includes(f.id);
+                      return (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedFacilities(prev =>
+                              prev.includes(f.id) ? prev.filter(x => x !== f.id) : [...prev, f.id]
+                            );
+                          }}
+                          className={cn(
+                            "px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border",
+                            active
+                              ? "bg-[#16A34A] text-white border-[#16A34A] shadow-sm"
+                              : "bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-300"
+                          )}
+                        >
+                          {active ? "✓ " : "+ "} {f.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
               <div className="flex gap-3 mt-6">
