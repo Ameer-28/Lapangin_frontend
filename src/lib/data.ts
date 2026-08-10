@@ -4,19 +4,19 @@ import {
 import React from "react";
 
 export const FACILITY_MAP: Record<string, { label: string; Icon: React.FC<{ className?: string }> }> = {
-  lighting:   { label: "Pencahayaan Lampu Sorot",         Icon: SunMedium },
-  safety_net: { label: "Jaring Pengaman & Papan Skor",   Icon: ShieldCheck },
-  locker:     { label: "Ruang Ganti & Loker Storage",    Icon: Lock },
-  shower:     { label: "Kamar Mandi, Shower & Toilet",   Icon: Droplets },
-  mosque:     { label: "Musholla & Tempat Wudhu",        Icon: Compass },
-  cafeteria:  { label: "Kantin & Mini Cafe",             Icon: Coffee },
-  tribune:    { label: "Tribun & Area Duduk Penonton",   Icon: Users },
-  parking:    { label: "Area Parkir Motor & Mobil",      Icon: Car },
-  wifi:       { label: "Akses WiFi & Colokan Listrik",   Icon: Wifi },
+  lighting:   { label: "Lampu Sorot",        Icon: SunMedium },
+  safety_net: { label: "Jaring & Skor",      Icon: ShieldCheck },
+  locker:     { label: "Ruang Ganti & Loker",Icon: Lock },
+  shower:     { label: "Shower & Toilet",    Icon: Droplets },
+  mosque:     { label: "Musholla",           Icon: Compass },
+  cafeteria:  { label: "Kantin",             Icon: Coffee },
+  tribune:    { label: "Tribun",             Icon: Users },
+  parking:    { label: "Parkir",             Icon: Car },
+  wifi:       { label: "WiFi & Listrik",     Icon: Wifi },
   // Backward compatibility aliases
-  ac:         { label: "Akses WiFi & Colokan Listrik",   Icon: Wifi },
-  canteen:    { label: "Kantin & Mini Cafe",             Icon: Coffee },
-  musholla:   { label: "Musholla & Tempat Wudhu",        Icon: Compass },
+  ac:         { label: "WiFi & Listrik",     Icon: Wifi },
+  canteen:    { label: "Kantin",             Icon: Coffee },
+  musholla:   { label: "Musholla",           Icon: Compass },
 };
 
 export const MONTHS = ["January","February","March","April","May","June",

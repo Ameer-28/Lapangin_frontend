@@ -197,16 +197,7 @@ export default function VenueDetailPage() {
               <p className="text-3xl font-bold text-[#16A34A] mt-1">{formatPrice(venue.pricePerHour || venue.price || 0)}</p>
               <p className="text-gray-400 text-sm">per hour</p>
             </div>
-            <div className="space-y-3 mb-5">
-              {venue.facilities?.slice(0, 4).map((f: string) => {
-                const { label, Icon } = FACILITY_MAP[f] ?? { label: f, Icon: Check };
-                return (
-                  <div key={f} className="flex items-center gap-2.5 text-sm text-gray-600">
-                    <Icon className="w-4 h-4 text-[#16A34A] shrink-0" /> {label}
-                  </div>
-                );
-              })}
-            </div>
+            <div className="border-b border-gray-50 mb-5" />
             <GreenButton 
               onClick={() => {
                 const userStr = localStorage.getItem("user");

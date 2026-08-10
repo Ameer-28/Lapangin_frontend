@@ -319,15 +319,15 @@ export default function AdminVenues() {
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Facilities</label>
                   <div className="flex flex-wrap gap-2 pt-1">
                     {[
-                      { id: "lighting", label: "Pencahayaan Lampu Sorot" },
-                      { id: "safety_net", label: "Jaring Pengaman & Skor" },
+                      { id: "lighting", label: "Lampu Sorot" },
+                      { id: "safety_net", label: "Jaring & Skor" },
                       { id: "locker", label: "Ruang Ganti & Loker" },
                       { id: "shower", label: "Shower & Toilet" },
-                      { id: "mosque", label: "Musholla & Wudhu" },
-                      { id: "cafeteria", label: "Kantin & Mini Cafe" },
-                      { id: "tribune", label: "Tribun Penonton" },
-                      { id: "parking", label: "Parkir Motor & Mobil" },
-                      { id: "wifi", label: "WiFi & Colokan Listrik" },
+                      { id: "mosque", label: "Musholla" },
+                      { id: "cafeteria", label: "Kantin" },
+                      { id: "tribune", label: "Tribun" },
+                      { id: "parking", label: "Parkir" },
+                      { id: "wifi", label: "WiFi & Listrik" },
                     ].map(f => {
                       const active = selectedFacilities.includes(f.id);
                       return (
