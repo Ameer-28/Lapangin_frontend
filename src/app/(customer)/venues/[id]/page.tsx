@@ -125,11 +125,14 @@ export default function VenueDetailPage() {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">{venue.name}</h1>
               <div className="flex items-center gap-1.5 text-gray-500 text-sm mt-1"><MapPin className="w-4 h-4 text-[#16A34A]" />{venue.location || venue.address ? `${venue.location || venue.address}, ` : ''}{venue.city}</div>
-              <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
                 <Stars rating={venue.rating || 0} size="md" />
                 <span className="text-gray-700 text-sm font-semibold">{venue.rating || 0}</span>
                 <span className="text-gray-400 text-sm">({venue.reviewCount || venue.reviews || venue.reviewsCount || 0} reviews)</span>
-                <span className={cx("text-xs font-bold px-2.5 py-1 rounded-full ml-1", venue.type === "Indoor" ? "bg-green-100 text-[#16A34A]" : "bg-yellow-100 text-yellow-700")}>{venue.type}</span>
+                <span className={cx("text-xs font-bold px-2.5 py-1 rounded-full", venue.type === "Indoor" ? "bg-green-100 text-[#16A34A]" : "bg-yellow-100 text-yellow-700")}>{venue.type}</span>
+                <span className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full">
+                  <Clock className="w-3.5 h-3.5" /> Jam Buka: {venue.openTime || "07:00"} - {venue.closeTime || "23:00"}
+                </span>
               </div>
             </div>
             <button onClick={toggleFavorite} className={cx("w-10 h-10 rounded-xl border flex items-center justify-center transition-all",

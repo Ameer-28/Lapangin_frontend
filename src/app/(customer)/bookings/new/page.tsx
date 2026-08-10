@@ -94,6 +94,68 @@ export default function BookingPaymentPage() {
   const prevMonth = () => { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); };
   const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); };
 
+  // Helper to get array of consecutive time slots based on startTime and duration
+  const getSelectedSlotRange = (startTime: string | null, dur: number): string[] => {
+    if (!startTime) return [];
+    const startHour = parseInt(startTime.split(':')[0], 10);
+    const range: string[] = [];
+    for (let i = 0; i < dur; i++) {
+      const h = startHour + i;
+      range.push(`${h.toString().padStart(2, '0')}:00`);
+    }
+    return range;
+  };
+
+  const getEndTimeStr = (startTime: string | null, dur: number): string => {
+    if (!startTime) return "";
+    const startHour = parseInt(startTime.split(':')[0], 10);
+    const endHour = startHour + dur;
+    return `${endHour.toString().padStart(2, '0')}:00`;
+  };
+
+  const isSlotRangeAvailable = (startTime: string, dur: number): boolean => {
+    const range = getSelectedSlotRange(startTime, dur);
+    for (const slotStr of range) {
+      const found = timeSlots.find(s => (s.startTime || s.time) === slotStr);
+      if (!found || found.isBooked || found.isAvailable === false) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handleSelectStartTime = (slotTime: string) => {
+    if (selTime === slotTime) {
+      setSelTime(null);
+      return;
+    }
+    if (isSlotRangeAvailable(slotTime, duration)) {
+      setSelTime(slotTime);
+    } else {
+      setPopup({
+        isOpen: true,
+        type: "warning",
+        title: "Jam Tidak Tersedia",
+        message: `Tidak dapat memilih jam ${slotTime} untuk durasi ${duration} jam karena ada slot jam yang sudah terisi atau melewati jam operasional venue (${venue?.closeTime || '23:00'}).`,
+      });
+    }
+  };
+
+  const handleDurationChange = (newDur: number) => {
+    setDuration(newDur);
+    if (selTime) {
+      if (!isSlotRangeAvailable(selTime, newDur)) {
+        setSelTime(null);
+        setPopup({
+          isOpen: true,
+          type: "warning",
+          title: "Durasi Disesuaikan",
+          message: `Jam ${selTime} tidak tersedia untuk durasi ${newDur} jam. Silakan pilih kembali jam mulai Anda.`,
+        });
+      }
+    }
+  };
+
   const handleApplyPromo = async () => {
     try {
       const res = await api.post("/promo-codes/validate", { code: promo });
@@ -368,27 +430,37 @@ export default function BookingPaymentPage() {
 
               {/* Time slots */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                <h2 className="font-bold text-gray-900 mb-4">Select Start Time</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-bold text-gray-900">Select Start Time</h2>
+                  {selTime && (
+                    <span className="text-xs font-semibold text-[#16A34A] bg-green-50 px-3 py-1 rounded-full border border-green-200">
+                      Tersedia: {selTime} - {getEndTimeStr(selTime, duration)} ({duration} jam)
+                    </span>
+                  )}
+                </div>
                 <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
                   {timeSlots.length === 0 ? (
                     <div className="col-span-4 sm:col-span-8 text-sm text-gray-500">No time slots available for this date.</div>
                   ) : (
-                    timeSlots.map(slot => {
-                      const slotTime = slot.startTime || slot.time;
-                      const booked = slot.isBooked ?? !slot.isAvailable;
-                      const selected = selTime === slotTime;
-                      return (
-                        <button key={slotTime} disabled={booked} onClick={() => setSelTime(selected ? null : slotTime)}
-                          className={cn("py-2.5 rounded-xl text-xs font-semibold transition-all",
-                            booked   ? "bg-gray-100 text-gray-300 cursor-not-allowed" :
-                            selected ? "bg-[#16A34A] text-white shadow-md" :
-                                       "bg-green-50 text-[#16A34A] hover:bg-[#16A34A] hover:text-white"
-                          )}
-                        >
-                          {slotTime}
-                        </button>
-                      );
-                    })
+                    (() => {
+                      const selectedRange = getSelectedSlotRange(selTime, duration);
+                      return timeSlots.map(slot => {
+                        const slotTime = slot.startTime || slot.time;
+                        const booked = slot.isBooked ?? !slot.isAvailable;
+                        const inRange = selectedRange.includes(slotTime);
+                        return (
+                          <button key={slotTime} disabled={booked} onClick={() => handleSelectStartTime(slotTime)}
+                            className={cn("py-2.5 rounded-xl text-xs font-semibold transition-all",
+                              booked  ? "bg-gray-100 text-gray-300 cursor-not-allowed" :
+                              inRange ? "bg-[#16A34A] text-white shadow-md font-bold scale-[1.02]" :
+                                        "bg-green-50 text-[#16A34A] hover:bg-[#16A34A] hover:text-white"
+                            )}
+                          >
+                            {slotTime}
+                          </button>
+                        );
+                      });
+                    })()
                   )}
                 </div>
               </div>
@@ -397,18 +469,18 @@ export default function BookingPaymentPage() {
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                 <h2 className="font-bold text-gray-900 mb-4">Duration</h2>
                 <div className="flex items-center gap-4">
-                  <button onClick={() => setDuration(d => Math.max(1, d - 1))} className="w-10 h-10 rounded-xl border border-gray-200 flex items-center justify-center hover:border-gray-300 transition-colors">
+                  <button onClick={() => handleDurationChange(Math.max(1, duration - 1))} className="w-10 h-10 rounded-xl border border-gray-200 flex items-center justify-center hover:border-gray-300 transition-colors">
                     <Minus className="w-4 h-4 text-gray-600" />
                   </button>
                   <span className="text-2xl font-bold text-gray-900 min-w-[60px] text-center">{duration}h</span>
-                  <button onClick={() => setDuration(d => Math.min(4, d + 1))} className="w-10 h-10 rounded-xl border border-gray-200 flex items-center justify-center hover:border-gray-300 transition-colors">
+                  <button onClick={() => handleDurationChange(Math.min(4, duration + 1))} className="w-10 h-10 rounded-xl border border-gray-200 flex items-center justify-center hover:border-gray-300 transition-colors">
                     <Plus className="w-4 h-4 text-gray-600" />
                   </button>
                   <span className="text-gray-400 text-sm ml-2">Max 4 hours per booking</span>
                 </div>
                 <div className="flex gap-3 mt-4">
                   {[1,2,3,4].map(h => (
-                    <button key={h} onClick={() => setDuration(h)}
+                    <button key={h} onClick={() => handleDurationChange(h)}
                       className={cn("px-4 py-2 rounded-xl text-sm font-medium transition-all",
                         duration === h ? "bg-[#16A34A] text-white" : "bg-gray-50 text-gray-600 hover:bg-green-50"
                       )}
@@ -493,7 +565,7 @@ export default function BookingPaymentPage() {
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Clock className="w-4 h-4 text-[#16A34A]" />
-                {selTime ? selTime : "Not selected"}
+                {selTime ? `${selTime} - ${getEndTimeStr(selTime, duration)} (${duration}h)` : "Not selected"}
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Award className="w-4 h-4 text-[#16A34A]" />

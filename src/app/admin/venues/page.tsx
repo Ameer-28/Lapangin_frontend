@@ -149,6 +149,8 @@ export default function AdminVenues() {
       city: String(rawData.city || "").trim(),
       location: String(rawData.location || "").trim(),
       pricePerHour: Number(rawData.pricePerHour) || 0,
+      openTime: String(rawData.openTime || "07:00").trim(),
+      closeTime: String(rawData.closeTime || "23:00").trim(),
       type: (rawData.type === "Outdoor" ? "Outdoor" : "Indoor") as "Indoor" | "Outdoor",
       imageUrl: imageUrl || String(rawData.imageUrl || "").trim() || undefined,
     };
@@ -220,6 +222,8 @@ export default function AdminVenues() {
                   ["city", "City", "Jakarta Selatan", "text", editingVenue?.city],
                   ["location", "Address / Location", "Jl. Sudirman No. 45", "text", editingVenue?.location],
                   ["pricePerHour", "Price / Hour", "150000", "number", editingVenue?.pricePerHour],
+                  ["openTime", "Jam Buka", "07:00", "text", editingVenue?.openTime || "07:00"],
+                  ["closeTime", "Jam Tutup", "23:00", "text", editingVenue?.closeTime || "23:00"],
                 ].map(([name, label, ph, type, defaultVal]) => (
                   <div key={name as string} className={name === "location" || name === "name" ? "col-span-2" : ""}>
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{label as string}</label>
@@ -296,7 +300,7 @@ export default function AdminVenues() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                {["Venue","Owner","City","Type","Price/hr","Bookings","Revenue","Status","Actions"].map(h => (
+                {["Venue","Owner","City","Jam Buka","Type","Price/hr","Bookings","Revenue","Status","Actions"].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -314,6 +318,7 @@ export default function AdminVenues() {
                   </td>
                   <td className="px-4 py-4 text-sm text-gray-500 whitespace-nowrap">{v.owner || "-"}</td>
                   <td className="px-4 py-4 text-sm text-gray-500">{v.city}</td>
+                  <td className="px-4 py-4 text-sm font-medium text-gray-700 whitespace-nowrap">{v.openTime || "07:00"} - {v.closeTime || "23:00"}</td>
                   <td className="px-4 py-4">
                     <span className={cn("text-xs font-bold px-2.5 py-1 rounded-full", v.type === "Indoor" ? "bg-green-100 text-[#16A34A]" : "bg-yellow-100 text-yellow-700")}>{v.type}</span>
                   </td>
