@@ -363,52 +363,52 @@ export default function AdminVenues() {
 
       {/* Table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="w-full">
+          <table className="w-full text-left border-collapse">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                {["Venue","Owner","City","Jam Buka","Type","Price/hr","Bookings","Revenue","Status","Actions"].map(h => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                {["Venue", "Owner", "City", "Jam Buka", "Type", "Price/hr", "Bookings", "Revenue", "Status", "Actions"].map(h => (
+                  <th key={h} className="px-3 py-3 text-[11px] font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-gray-50 text-xs">
               {filtered.map(v => (
                 <tr key={v.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-4 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-green-100 overflow-hidden shrink-0">
+                  <td className="px-3 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-green-100 overflow-hidden shrink-0">
                         <img src={v.imageUrl || v.image || "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=200&auto=format&fit=crop"} alt={v.name} className="w-full h-full object-cover" />
                       </div>
-                      <span className="font-semibold text-gray-900 text-sm whitespace-nowrap">{v.name}</span>
+                      <span className="font-semibold text-gray-900 text-xs max-w-[130px] truncate" title={v.name}>{v.name}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-4 text-sm text-gray-500 whitespace-nowrap">{v.owner || "-"}</td>
-                  <td className="px-4 py-4 text-sm text-gray-500">{v.city}</td>
-                  <td className="px-4 py-4 text-sm font-medium text-gray-700 whitespace-nowrap">{v.openTime || "07:00"} - {v.closeTime || "23:00"}</td>
-                  <td className="px-4 py-4">
-                    <span className={cn("text-xs font-bold px-2.5 py-1 rounded-full", v.type === "Indoor" ? "bg-green-100 text-[#16A34A]" : "bg-yellow-100 text-yellow-700")}>{v.type}</span>
+                  <td className="px-3 py-3 text-gray-500 max-w-[120px] truncate" title={v.owner || ""}>{v.owner || "-"}</td>
+                  <td className="px-3 py-3 text-gray-500 whitespace-nowrap">{v.city}</td>
+                  <td className="px-3 py-3 font-medium text-gray-700 whitespace-nowrap">{v.openTime || "07:00"} - {v.closeTime || "23:00"}</td>
+                  <td className="px-3 py-3">
+                    <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", v.type === "Indoor" ? "bg-green-100 text-[#16A34A]" : "bg-yellow-100 text-yellow-700")}>{v.type}</span>
                   </td>
-                  <td className="px-4 py-4 text-sm font-semibold text-gray-700 whitespace-nowrap">{formatPrice(v.pricePerHour || v.price || 0)}</td>
-                  <td className="px-4 py-4 text-sm text-gray-600">{v.totalBookings || 0}</td>
-                  <td className="px-4 py-4 text-sm font-semibold text-[#16A34A] whitespace-nowrap">{formatPrice(v.revenue || 0)}</td>
-                  <td className="px-4 py-4">
+                  <td className="px-3 py-3 font-semibold text-gray-700 whitespace-nowrap">{formatPrice(v.pricePerHour || v.price || 0)}</td>
+                  <td className="px-3 py-3 text-gray-600 text-center">{v.totalBookings || 0}</td>
+                  <td className="px-3 py-3 font-semibold text-[#16A34A] whitespace-nowrap">{formatPrice(v.revenue || 0)}</td>
+                  <td className="px-3 py-3">
                     <button onClick={() => toggleActive(v.id, v.isActive)}
-                      className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors",
+                      className={cn("flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold transition-colors",
                         v.isActive ? "bg-green-50 text-green-700 hover:bg-green-100" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                       )}
                     >
-                      <div className={cn("w-2 h-2 rounded-full", v.isActive ? "bg-green-500" : "bg-gray-400")} />
+                      <div className={cn("w-1.5 h-1.5 rounded-full", v.isActive ? "bg-green-500" : "bg-gray-400")} />
                       {v.isActive ? "Active" : "Inactive"}
                     </button>
                   </td>
-                  <td className="px-4 py-4">
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => setEditId(v.id)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                        <PenLine className="w-4 h-4" />
+                  <td className="px-3 py-3">
+                    <div className="flex items-center gap-0.5">
+                      <button onClick={() => setEditId(v.id)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="Edit">
+                        <PenLine className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => deleteVenue(v.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                        <Trash2 className="w-4 h-4" />
+                      <button onClick={() => deleteVenue(v.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Delete">
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </td>

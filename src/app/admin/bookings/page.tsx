@@ -9,6 +9,7 @@ import api from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { PopupModal, PopupType } from "@/components/ui/PopupModal";
+import { ReceiptModal } from "@/components/ui/ReceiptModal";
 
 export default function AdminBookings() {
   const [filter, setFilter] = useState("all");
@@ -17,6 +18,7 @@ export default function AdminBookings() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [viewBooking, setViewBooking] = useState<any>(null);
+  const [receiptBooking, setReceiptBooking] = useState<any>(null);
   const [popup, setPopup] = useState<{
     isOpen: boolean;
     type?: PopupType;
@@ -175,7 +177,7 @@ export default function AdminBookings() {
                             <XCircle className="w-4 h-4" />
                           </button>
                         )}
-                        <button className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Download">
+                        <button onClick={() => setReceiptBooking(b)} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Download Receipt">
                           <Download className="w-4 h-4" />
                         </button>
                       </div>
@@ -302,6 +304,12 @@ export default function AdminBookings() {
           </div>
         )}
       </AnimatePresence>
+
+      <ReceiptModal
+        isOpen={!!receiptBooking}
+        onClose={() => setReceiptBooking(null)}
+        booking={receiptBooking}
+      />
 
       <PopupModal
         isOpen={popup.isOpen}

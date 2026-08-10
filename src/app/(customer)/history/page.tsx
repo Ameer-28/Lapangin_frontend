@@ -11,6 +11,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { PopupModal, PopupType } from "@/components/ui/PopupModal";
+import { ReceiptModal } from "@/components/ui/ReceiptModal";
 
 export default function HistoryPage() {
   const router = useRouter();
@@ -18,6 +19,7 @@ export default function HistoryPage() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [receiptBooking, setReceiptBooking] = useState<any>(null);
   const [reviewBookingId, setReviewBookingId] = useState<string | null>(null);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewComment, setReviewComment] = useState('');
@@ -189,7 +191,7 @@ export default function HistoryPage() {
                       )
                     )}
                     {b.status === "completed" && (
-                      <button className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:border-gray-300 transition-colors">
+                      <button onClick={() => setReceiptBooking(b)} className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:border-gray-300 transition-colors">
                         <Download className="w-3.5 h-3.5" /> Receipt
                       </button>
                     )}
@@ -295,6 +297,12 @@ export default function HistoryPage() {
           </div>
         )}
       </AnimatePresence>
+
+      <ReceiptModal
+        isOpen={!!receiptBooking}
+        onClose={() => setReceiptBooking(null)}
+        booking={receiptBooking}
+      />
 
       <PopupModal
         isOpen={popup.isOpen}
