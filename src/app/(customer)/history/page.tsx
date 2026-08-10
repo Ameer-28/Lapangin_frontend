@@ -21,7 +21,7 @@ export default function HistoryPage() {
   const [reviewBookingId, setReviewBookingId] = useState<string | null>(null);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewComment, setReviewComment] = useState('');
-  const [reviewedBookings, setReviewedBookings] = useState<Set<string>>(new Set());
+  const [reviewedVenues, setReviewedVenues] = useState<Set<string>>(new Set());
   const [submittingReview, setSubmittingReview] = useState(false);
 
   const [popup, setPopup] = useState<{
@@ -32,12 +32,14 @@ export default function HistoryPage() {
     onConfirm?: () => void;
   }>({ isOpen: false, message: "" });
 
-  const checkReviews = async (bookingItems: any[]) => {
-    const reviewed = new Set<string>();
-    for (const b of bookingItems) {
-      if (b.review) reviewed.add(b.id);
+  const fetchReviewedVenues = async () => {
+    try {
+      const res = await api.get("/reviews/my-reviewed-venues");
+      const venueIds: string[] = Array.isArray(res.data) ? res.data : [];
+      setReviewedVenues(new Set(venueIds));
+    } catch (e) {
+      // fallback: check from booking data
     }
-    setReviewedBookings(reviewed);
   };
 
   const fetchBookings = async () => {
@@ -46,7 +48,6 @@ export default function HistoryPage() {
       const raw = res.data;
       const fetchedBookings = Array.isArray(raw) ? raw : (raw?.items || raw?.data || []);
       setBookings(fetchedBookings);
-      checkReviews(fetchedBookings);
     } catch (error) {
       console.error("Error fetching bookings:", error);
     } finally {
@@ -56,6 +57,7 @@ export default function HistoryPage() {
 
   useEffect(() => {
     fetchBookings();
+    fetchReviewedVenues();
   }, []);
 
   const handleSubmitReview = async () => {
@@ -67,7 +69,11 @@ export default function HistoryPage() {
         rating: reviewRating,
         comment: reviewComment || undefined,
       });
-      setReviewedBookings(prev => new Set(prev).add(reviewBookingId));
+      // Find the venueId of this booking and mark the entire venue as reviewed
+      const booking = bookings.find(b => b.id === reviewBookingId);
+      if (booking?.venueId) {
+        setReviewedVenues(prev => new Set(prev).add(booking.venueId));
+      }
       setReviewBookingId(null);
       setReviewRating(0);
       setReviewComment('');
@@ -172,7 +178,7 @@ export default function HistoryPage() {
                   <span className="font-bold text-[#16A34A] text-lg">{formatPrice(b.total ?? b.totalPrice ?? 0)}</span>
                   <div className="flex gap-2">
                     {b.status === "completed" && (
-                      reviewedBookings.has(b.id) ? (
+                      reviewedVenues.has(b.venueId) ? (
                         <span className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 rounded-xl text-xs font-semibold text-gray-500 cursor-not-allowed">
                           ✅ Reviewed
                         </span>
