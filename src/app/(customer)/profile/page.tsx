@@ -82,30 +82,61 @@ export default function ProfilePage() {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadingAvatar(true);
+
     const reader = new FileReader();
-    reader.onloadend = async () => {
-      const result = reader.result as string;
-      setAvatarUrl(result);
-      try {
-        await api.patch("/users/me", { avatarUrl: result });
-        setUser((prev: any) => ({ ...prev, avatarUrl: result }));
-        setPopup({
-          isOpen: true,
-          type: "success",
-          title: "Foto Profil Diperbarui",
-          message: "Foto profil Anda berhasil diunggah dan diperbarui!"
-        });
-      } catch (err) {
-        console.error("Failed to save avatar", err);
-        setPopup({
-          isOpen: true,
-          type: "error",
-          title: "Gagal Mengunggah Foto",
-          message: "Terjadi kesalahan saat menyimpan foto profil."
-        });
-      } finally {
-        setUploadingAvatar(false);
-      }
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX_WIDTH = 300;
+        const MAX_HEIGHT = 300;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.8);
+        setAvatarUrl(compressedDataUrl);
+
+        api.patch("/users/me", { avatarUrl: compressedDataUrl })
+          .then(() => {
+            setUser((prev: any) => ({ ...prev, avatarUrl: compressedDataUrl }));
+            setPopup({
+              isOpen: true,
+              type: "success",
+              title: "Foto Profil Diperbarui",
+              message: "Foto profil Anda berhasil diunggah dan diperbarui!"
+            });
+          })
+          .catch((err: any) => {
+            console.error("Failed to save avatar", err);
+            setPopup({
+              isOpen: true,
+              type: "error",
+              title: "Gagal Mengunggah Foto",
+              message: err.response?.data?.message || "Terjadi kesalahan saat menyimpan foto profil."
+            });
+          })
+          .finally(() => {
+            setUploadingAvatar(false);
+          });
+      };
+      img.src = event.target?.result as string;
     };
     reader.readAsDataURL(file);
   };
