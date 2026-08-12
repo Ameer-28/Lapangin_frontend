@@ -31,6 +31,8 @@ export default function ProfilePage() {
     phone: "",
     city: ""
   });
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
@@ -52,6 +54,7 @@ export default function ProfilePage() {
         const res = await api.get("/users/me");
         const userData = res.data.data || res.data;
         setUser(userData);
+        setAvatarUrl(userData.avatarUrl || "");
         setFormData({
           fullName: userData.fullName || userData.name || "",
           email: userData.email || "",
@@ -75,12 +78,45 @@ export default function ProfilePage() {
     router.push("/login");
   };
 
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingAvatar(true);
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const result = reader.result as string;
+      setAvatarUrl(result);
+      try {
+        await api.patch("/users/me", { avatarUrl: result });
+        setUser((prev: any) => ({ ...prev, avatarUrl: result }));
+        setPopup({
+          isOpen: true,
+          type: "success",
+          title: "Foto Profil Diperbarui",
+          message: "Foto profil Anda berhasil diunggah dan diperbarui!"
+        });
+      } catch (err) {
+        console.error("Failed to save avatar", err);
+        setPopup({
+          isOpen: true,
+          type: "error",
+          title: "Gagal Mengunggah Foto",
+          message: "Terjadi kesalahan saat menyimpan foto profil."
+        });
+      } finally {
+        setUploadingAvatar(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSaveInfo = async () => {
     try {
       await api.patch("/users/me", {
         fullName: formData.fullName,
         phone: formData.phone,
-        city: formData.city
+        city: formData.city,
+        avatarUrl: avatarUrl || undefined,
       });
       setPopup({
         isOpen: true,
@@ -161,10 +197,19 @@ export default function ProfilePage() {
         <div className="lg:col-span-1">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center mb-4">
             <div className="relative w-20 h-20 mx-auto mb-4">
-              <div className="w-20 h-20 bg-gradient-to-br from-[#16A34A] to-[#22C55E] rounded-full flex items-center justify-center text-white text-2xl font-bold">{initials}</div>
-              <button className="absolute bottom-0 right-0 w-7 h-7 bg-[#16A34A] rounded-full flex items-center justify-center hover:bg-[#15803d] transition-colors">
+              {avatarUrl || user?.avatarUrl ? (
+                <img
+                  src={avatarUrl || user?.avatarUrl}
+                  alt="Avatar"
+                  className="w-20 h-20 rounded-full object-cover border-2 border-[#16A34A] shadow-md"
+                />
+              ) : (
+                <div className="w-20 h-20 bg-gradient-to-br from-[#16A34A] to-[#22C55E] rounded-full flex items-center justify-center text-white text-2xl font-bold">{initials}</div>
+              )}
+              <label className="absolute bottom-0 right-0 w-7 h-7 bg-[#16A34A] rounded-full flex items-center justify-center hover:bg-[#15803d] transition-colors cursor-pointer shadow-md">
                 <Camera className="w-3.5 h-3.5 text-white" />
-              </button>
+                <input type="file" accept="image/*" onChange={handleAvatarFileChange} className="hidden" />
+              </label>
             </div>
             <p className="font-bold text-gray-900">{formData.fullName || "Player"}</p>
             <p className="text-gray-400 text-sm">{formData.email}</p>

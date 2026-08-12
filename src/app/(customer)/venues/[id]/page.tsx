@@ -131,7 +131,7 @@ export default function VenueDetailPage() {
                 <span className="text-gray-400 text-sm">({venue.reviewCount || venue.reviews || venue.reviewsCount || 0} reviews)</span>
                 <span className={cx("text-xs font-bold px-2.5 py-1 rounded-full", venue.type === "Indoor" ? "bg-green-100 text-[#16A34A]" : "bg-yellow-100 text-yellow-700")}>{venue.type}</span>
                 <span className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full">
-                  <Clock className="w-3.5 h-3.5" /> Jam Buka: {venue.openTime || "07:00"} - {venue.closeTime || "23:00"}
+                  <Clock className="w-3.5 h-3.5" /> Jam Buka: {venue.openTime === "00:00" && (venue.closeTime === "24:00" || venue.closeTime === "00:00") ? "⚡ 24 Jam Non-Stop" : `${venue.openTime || "07:00"} - ${venue.closeTime || "23:00"}`}
                 </span>
               </div>
             </div>

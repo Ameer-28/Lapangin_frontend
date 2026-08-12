@@ -30,14 +30,21 @@ export default function AdminVenues() {
   const [selectedFacilities, setSelectedFacilities] = useState<string[]>([]);
   const editingVenue = venues.find(v => v.id === editId);
 
+  const [formOpenTime, setFormOpenTime] = useState("07:00");
+  const [formCloseTime, setFormCloseTime] = useState("23:00");
+
   useEffect(() => {
     const defaultFacs = ["lighting", "safety_net", "locker", "shower", "mosque", "cafeteria", "tribune", "parking", "wifi"];
     if (editingVenue) {
       setImageUrl(editingVenue.imageUrl || editingVenue.image || "");
       setSelectedFacilities(editingVenue.facilities?.length ? editingVenue.facilities : defaultFacs);
+      setFormOpenTime(editingVenue.openTime || "07:00");
+      setFormCloseTime(editingVenue.closeTime || "23:00");
     } else {
       setImageUrl("");
       setSelectedFacilities(defaultFacs);
+      setFormOpenTime("07:00");
+      setFormCloseTime("23:00");
     }
   }, [editId, showAdd]);
 
@@ -243,8 +250,6 @@ export default function AdminVenues() {
                   ["city", "City", "Jakarta Selatan", "text", editingVenue?.city],
                   ["location", "Address / Location", "Jl. Sudirman No. 45", "text", editingVenue?.location],
                   ["pricePerHour", "Price / Hour", "150000", "number", editingVenue?.pricePerHour],
-                  ["openTime", "Jam Buka", "07:00", "text", editingVenue?.openTime || "07:00"],
-                  ["closeTime", "Jam Tutup", "23:00", "text", editingVenue?.closeTime || "23:00"],
                 ].map(([name, label, ph, type, defaultVal]) => (
                   <div key={name as string} className={name === "location" || name === "name" ? "col-span-2" : ""}>
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{label as string}</label>
@@ -258,6 +263,49 @@ export default function AdminVenues() {
                     />
                   </div>
                 ))}
+
+                {/* Operating Hours & 24 Hours quick toggle */}
+                <div className="col-span-2 bg-gray-50 p-3.5 rounded-xl border border-gray-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Jam Operasional</label>
+                    <button
+                      type="button"
+                      onClick={() => { setFormOpenTime("00:00"); setFormCloseTime("24:00"); }}
+                      className="text-xs text-[#16A34A] font-bold bg-green-100 px-2.5 py-1 rounded-lg border border-green-300 hover:bg-green-200 transition-colors flex items-center gap-1"
+                    >
+                      ⚡ Set 24 Jam Non-Stop
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <span className="block text-[11px] text-gray-500 mb-1">Jam Buka</span>
+                      <input
+                        name="openTime"
+                        type="text"
+                        placeholder="07:00 atau 00:00"
+                        value={formOpenTime}
+                        onChange={(e) => setFormOpenTime(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-semibold text-gray-900 outline-none focus:border-[#16A34A]"
+                      />
+                    </div>
+                    <div>
+                      <span className="block text-[11px] text-gray-500 mb-1">Jam Tutup</span>
+                      <input
+                        name="closeTime"
+                        type="text"
+                        placeholder="23:00 atau 24:00"
+                        value={formCloseTime}
+                        onChange={(e) => setFormCloseTime(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-semibold text-gray-900 outline-none focus:border-[#16A34A]"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-gray-400">
+                    💡 Untuk venue 24 jam, atur Jam Buka: <code className="text-gray-700 bg-white px-1 py-0.5 rounded border">00:00</code> & Jam Tutup: <code className="text-gray-700 bg-white px-1 py-0.5 rounded border">24:00</code> (atau klik tombol hijau di atas).
+                  </p>
+                </div>
                 
                 {/* Photo Upload & Preview Section */}
                 <div className="col-span-2 space-y-2">
