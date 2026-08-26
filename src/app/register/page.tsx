@@ -38,8 +38,9 @@ export default function RegisterPage() {
   };
 
   const handleGoogleLogin = () => {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://lapangin-backend.up.railway.app';
-    window.location.href = `${backendUrl}/api/auth/google`;
+    const rawUrl = process.env.NEXT_PUBLIC_API_URL || 'https://lapangin-backend.vercel.app';
+    const baseUrl = rawUrl.replace(/\/api\/?$/, '');
+    window.location.href = `${baseUrl}/api/auth/google`;
   };
 
   return (
