@@ -272,10 +272,16 @@ export default function ProfilePage() {
                 <input type="file" accept="image/*" onChange={handleAvatarFileChange} className="hidden" />
               </label>
             </div>
-            <p className="font-bold text-gray-900">{formData.fullName || "Player"}</p>
-            <p className="text-gray-400 text-sm">{formData.email}</p>
-            <div className="mt-3 inline-flex items-center gap-1.5 bg-green-50 text-[#16A34A] px-3 py-1 rounded-full text-xs font-semibold">
-              <Award className="w-3 h-3" /> Member
+            <div className="space-y-1.5 mb-4">
+              <p className="font-bold text-gray-900 text-base leading-tight break-words">
+                {formData.fullName || user?.fullName || "Player"}
+              </p>
+              <p className="text-gray-400 text-xs break-all px-2 leading-relaxed">
+                {formData.email || user?.email}
+              </p>
+            </div>
+            <div className="inline-flex items-center gap-1.5 bg-green-50 text-[#16A34A] px-3.5 py-1 rounded-full text-xs font-semibold">
+              <Award className="w-3.5 h-3.5" /> Member
             </div>
           </div>
 
