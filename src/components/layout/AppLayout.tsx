@@ -6,6 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { 
   Home, Search, BookMarked, User, LogOut, Menu, X, Shield
 } from "lucide-react";
+import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
@@ -15,11 +16,33 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
     const userStr = localStorage.getItem("user");
-    if (!userStr) {
+    if (!token && !userStr) {
       router.push("/login");
-    } else {
-      setUser(JSON.parse(userStr));
+      return;
+    }
+
+    if (userStr) {
+      try {
+        setUser(JSON.parse(userStr));
+      } catch (_) {}
+    }
+
+    if (token) {
+      api.get("/users/me")
+        .then((res) => {
+          const freshUser = res.data?.data || res.data;
+          if (freshUser) {
+            setUser(freshUser);
+            localStorage.setItem("user", JSON.stringify(freshUser));
+          }
+        })
+        .catch((err) => {
+          if (err.response?.status === 401) {
+            router.push("/login");
+          }
+        });
     }
   }, [router]);
 
@@ -74,11 +97,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="p-4 border-t border-white/10">
         {user && (
           <div className="flex items-center gap-3 px-4 py-3 mb-1">
-            <div className="w-9 h-9 bg-gradient-to-br from-[#16A34A] to-[#22C55E] rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">
-              {user.fullName?.substring(0, 2).toUpperCase() || 'U'}
-            </div>
+            {user.avatarUrl ? (
+              <img src={user.avatarUrl} alt="Avatar" className="w-9 h-9 rounded-full object-cover shrink-0 border border-white/10" />
+            ) : (
+              <div className="w-9 h-9 bg-gradient-to-br from-[#16A34A] to-[#22C55E] rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">
+                {user.fullName?.substring(0, 2).toUpperCase() || user.email?.substring(0, 2).toUpperCase() || 'U'}
+              </div>
+            )}
             <div className="overflow-hidden">
-              <p className="text-white text-sm font-semibold truncate">{user.fullName}</p>
+              <p className="text-white text-sm font-semibold truncate">{user.fullName || user.email?.split('@')[0] || 'User'}</p>
               <p className="text-gray-400 text-xs truncate">{user.email}</p>
             </div>
           </div>
@@ -114,8 +141,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="lg:hidden sticky top-0 z-40 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm">
           <button onClick={() => setSidebarOpen(true)} className="text-gray-600 p-1"><Menu className="w-5 h-5" /></button>
           <span className="text-gray-900 font-bold tracking-tight">Lapang.in</span>
-          <Link href="/profile" className="w-8 h-8 bg-[#16A34A] rounded-full flex items-center justify-center text-white text-xs font-bold">
-            {user.fullName?.substring(0, 2).toUpperCase() || 'U'}
+          <Link href="/profile" className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center">
+            {user.avatarUrl ? (
+              <img src={user.avatarUrl} alt="Avatar" className="w-8 h-8 object-cover rounded-full" />
+            ) : (
+              <div className="w-8 h-8 bg-[#16A34A] rounded-full flex items-center justify-center text-white text-xs font-bold">
+                {user.fullName?.substring(0, 2).toUpperCase() || user.email?.substring(0, 2).toUpperCase() || 'U'}
+              </div>
+            )}
           </Link>
         </div>
         
