@@ -49,23 +49,43 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
+    // 1. Instant populate from localStorage so form is never blank
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      try {
+        const localUser = JSON.parse(userStr);
+        setUser(localUser);
+        setAvatarUrl(localUser.avatarUrl || "");
+        setFormData({
+          fullName: localUser.fullName || localUser.name || localUser.email?.split('@')[0] || "",
+          email: localUser.email || "",
+          phone: localUser.phone || "",
+          city: localUser.city || ""
+        });
+      } catch (_) {}
+    }
+
+    // 2. Fetch fresh data from backend
     const fetchUser = async () => {
       try {
         const res = await api.get("/users/me");
-        const userData = res.data.data || res.data;
-        setUser(userData);
-        setAvatarUrl(userData.avatarUrl || "");
-        setFormData({
-          fullName: userData.fullName || userData.name || "",
-          email: userData.email || "",
-          phone: userData.phone || "",
-          city: userData.city || ""
-        });
-        if (userData.notifications) {
-          setNotifications(userData.notifications);
+        const userData = res.data?.data || res.data;
+        if (userData) {
+          setUser(userData);
+          localStorage.setItem("user", JSON.stringify(userData));
+          setAvatarUrl(userData.avatarUrl || "");
+          setFormData({
+            fullName: userData.fullName || userData.name || userData.email?.split('@')[0] || "",
+            email: userData.email || "",
+            phone: userData.phone || "",
+            city: userData.city || ""
+          });
+          if (userData.notifications) {
+            setNotifications(userData.notifications);
+          }
         }
       } catch (err) {
-        console.error(err);
+        console.error("Failed to fetch profile in profile page:", err);
       } finally {
         setLoading(false);
       }
@@ -143,12 +163,22 @@ export default function ProfilePage() {
 
   const handleSaveInfo = async () => {
     try {
-      await api.patch("/users/me", {
+      const res = await api.patch("/users/me", {
         fullName: formData.fullName,
         phone: formData.phone,
         city: formData.city,
         avatarUrl: avatarUrl || undefined,
       });
+      const updatedUser = res.data?.data || res.data || {
+        ...user,
+        fullName: formData.fullName,
+        phone: formData.phone,
+        city: formData.city,
+        avatarUrl: avatarUrl || user?.avatarUrl,
+      };
+      setUser(updatedUser);
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+
       setPopup({
         isOpen: true,
         type: "success",
