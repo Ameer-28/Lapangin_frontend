@@ -18,19 +18,60 @@ function CallbackHandler() {
     const processAuth = async () => {
       try {
         localStorage.setItem("token", token);
+
+        // Fallback user from JWT in case /auth/profile takes time
+        try {
+          const base64Url = token.split('.')[1];
+          if (base64Url) {
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(
+              atob(base64)
+                .split('')
+                .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                .join('')
+            );
+            const decoded = JSON.parse(jsonPayload);
+            if (decoded?.sub) {
+              localStorage.setItem(
+                "user",
+                JSON.stringify({
+                  id: decoded.sub,
+                  email: decoded.email,
+                  role: decoded.role || "user",
+                })
+              );
+            }
+          }
+        } catch (_) {}
+
+        // Fetch full profile from backend
         const profileRes = await api.get("/auth/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
         const userData = profileRes.data;
-        localStorage.setItem("user", JSON.stringify(userData));
+        if (userData) {
+          localStorage.setItem("user", JSON.stringify(userData));
+        }
 
         if (userData?.role === "admin") {
-          router.push("/admin");
+          window.location.href = "/admin";
         } else {
-          router.push("/");
+          window.location.href = "/";
         }
       } catch (err) {
-        console.error("Failed to fetch profile during OAuth callback:", err);
+        console.error("Profile fetch error, checking saved user:", err);
+        const savedUser = localStorage.getItem("user");
+        if (savedUser) {
+          try {
+            const parsed = JSON.parse(savedUser);
+            if (parsed.role === "admin") {
+              window.location.href = "/admin";
+            } else {
+              window.location.href = "/";
+            }
+            return;
+          } catch (_) {}
+        }
         router.push("/login");
       }
     };

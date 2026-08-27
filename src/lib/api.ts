@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+const rawUrl = process.env.NEXT_PUBLIC_API_URL || 'https://lapangin-backend.up.railway.app';
+const cleanUrl = rawUrl.replace(/\/api\/?$/, '');
+
 const api = axios.create({
-  baseURL: (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000') + '/api',
+  baseURL: `${cleanUrl}/api`,
 });
 
 // Interceptor to add auth token if available (client-side only logic)
