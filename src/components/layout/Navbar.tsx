@@ -5,21 +5,11 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import {
   Bell,
-  Info,
-  HelpCircle,
-  FileText,
-  Users,
-  Settings,
+  Check,
   Shield,
   User as UserIcon,
   LogOut,
   BookMarked,
-  Search,
-  Sparkles,
-  MapPin,
-  Calendar,
-  Check,
-  Building,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -164,16 +154,6 @@ export function Navbar() {
       ],
     },
     ...(user ? [{ href: "/history", label: "Riwayat Booking" }] : []),
-    {
-      label: "Bantuan",
-      submenu: true,
-      type: "icon" as const,
-      items: [
-        { href: "/venues", label: "Cara Pemesanan", icon: "HelpCircle" },
-        { href: "/venues", label: "Lokasi Populer", icon: "MapPin" },
-        { href: "/", label: "Tentang Lapang.in", icon: "Info" },
-      ],
-    },
   ];
 
   return (
@@ -295,19 +275,12 @@ export function Navbar() {
                                     href={item.href}
                                     className="block select-none space-y-1 rounded-lg p-3 leading-none no-underline outline-none transition-colors hover:bg-white/10 focus:bg-white/10"
                                   >
-                                    <div className="flex items-center gap-2.5 font-medium text-sm text-white">
-                                      {link.type === "icon" && "icon" in item && (
-                                        <>
-                                          {item.icon === "HelpCircle" && <HelpCircle className="w-4 h-4 text-[#4ADE80]" />}
-                                          {item.icon === "MapPin" && <MapPin className="w-4 h-4 text-[#4ADE80]" />}
-                                          {item.icon === "Info" && <Info className="w-4 h-4 text-[#4ADE80]" />}
-                                        </>
-                                      )}
+                                    <div className="font-medium text-sm text-white">
                                       {item.label}
                                     </div>
-                                    {link.type === "description" && "description" in item && (
+                                    {"description" in item && (
                                       <p className="line-clamp-2 text-xs leading-snug text-gray-400 mt-1">
-                                        {item.description}
+                                        {(item as any).description}
                                       </p>
                                     )}
                                   </Link>
@@ -339,36 +312,6 @@ export function Navbar() {
         <div className="flex items-center gap-2 sm:gap-3">
           {user ? (
             <>
-              {/* Info Menu */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="size-9 text-gray-300 hover:text-white hover:bg-white/10 rounded-full">
-                    <Info className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-[#0F172A] border border-white/10 text-white shadow-xl">
-                  <DropdownMenuLabel className="text-gray-400 text-xs">Pusat Bantuan</DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-white/10" />
-                  <DropdownMenuItem asChild className="hover:bg-white/10 cursor-pointer">
-                    <Link href="/venues" className="flex items-center gap-2">
-                      <HelpCircle className="h-4 w-4 text-[#4ADE80]" />
-                      <span>Cara Booking Lapangan</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild className="hover:bg-white/10 cursor-pointer">
-                    <Link href="/venues" className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-[#4ADE80]" />
-                      <span>Ketentuan Pembayaran</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild className="hover:bg-white/10 cursor-pointer">
-                    <Link href="/venues" className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-[#4ADE80]" />
-                      <span>Komunitas Futsal</span>
-                    </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
 
               {/* Notification Menu */}
               <DropdownMenu onOpenChange={(open) => { if (open) fetchNotifications(); }}>
