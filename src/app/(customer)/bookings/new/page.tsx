@@ -32,12 +32,19 @@ function BookingPaymentContent() {
   }>({ isOpen: false, message: "" });
 
   const today = new Date();
-  const [year, setYear] = useState(today.getFullYear());
-  const [month, setMonth] = useState(today.getMonth());
-  const [selDate, setSelDate] = useState(today.getDate());
+  const dateParam = searchParams.get("date");
+  const timeParam = searchParams.get("time");
+  const parsedDate = dateParam ? new Date(dateParam) : today;
+  const initYear = !isNaN(parsedDate.getTime()) ? parsedDate.getFullYear() : today.getFullYear();
+  const initMonth = !isNaN(parsedDate.getTime()) ? parsedDate.getMonth() : today.getMonth();
+  const initDay = !isNaN(parsedDate.getTime()) ? parsedDate.getDate() : today.getDate();
+
+  const [year, setYear] = useState(initYear);
+  const [month, setMonth] = useState(initMonth);
+  const [selDate, setSelDate] = useState(initDay);
   
   const [timeSlots, setTimeSlots] = useState<any[]>([]);
-  const [selTime, setSelTime] = useState<string | null>(null);
+  const [selTime, setSelTime] = useState<string | null>(timeParam || null);
   const [duration, setDuration] = useState(1);
 
   const [promo, setPromo] = useState("");

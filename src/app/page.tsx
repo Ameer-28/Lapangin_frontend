@@ -118,7 +118,16 @@ export default function LandingPage() {
                   </select>
                 </div>
               </div>
-              <GreenButton onClick={() => router.push(`/venues?search=${loc}`)} className="mt-2 w-full py-3.5 flex items-center justify-center gap-2 text-base">
+              <GreenButton
+                onClick={() => {
+                  const params = new URLSearchParams();
+                  if (loc.trim()) params.set("search", loc.trim());
+                  if (date) params.set("date", date);
+                  if (time) params.set("time", time);
+                  router.push(`/venues?${params.toString()}`);
+                }}
+                className="mt-2 w-full py-3.5 flex items-center justify-center gap-2 text-base"
+              >
                 <Search className="w-5 h-5" /> Search Available Fields
               </GreenButton>
             </div>

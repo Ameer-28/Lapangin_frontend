@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { ChevronLeft, MapPin, Heart, Award, Clock, Star, Check } from "lucide-react";
+import { 
+  ChevronLeft, MapPin, Heart, Clock, Star, 
+  Calendar as CalendarIcon, AlertTriangle, CheckCircle2, Shield
+} from "lucide-react";
 import { GreenButton } from "@/components/ui/GreenButton";
 import { Stars } from "@/components/ui/Stars";
 import { formatPrice, FACILITY_MAP } from "@/lib/data";
@@ -12,19 +15,27 @@ import api from "@/lib/api";
 import Link from "next/link";
 import { PopupModal, PopupType } from "@/components/ui/PopupModal";
 
-const TIME_SLOTS = ["07:00","08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00"];
-
-export default function VenueDetailPage() {
+function VenueDetailContent() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = params.id as string;
+
+  const todayStr = new Date().toISOString().split("T")[0];
+  const paramDate = searchParams.get("date");
+  const paramTime = searchParams.get("time");
 
   const [venue, setVenue] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [activeImg, setActiveImg] = useState(0);
   const [liked, setLiked] = useState(false);
-  const [selSlot, setSelSlot] = useState<string | null>(null);
-  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  
+  // Date & Slot Selection
+  const [selectedDate, setSelectedDate] = useState<string>(paramDate || todayStr);
+  const [selSlot, setSelSlot] = useState<string | null>(paramTime || null);
+  const [slots, setSlots] = useState<any[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+
   const [popup, setPopup] = useState<{
     isOpen: boolean;
     type?: PopupType;
@@ -36,8 +47,13 @@ export default function VenueDetailPage() {
     fetchVenue();
     fetchReviews();
     checkFavorite();
-    fetchTimeSlots();
   }, [id]);
+
+  useEffect(() => {
+    if (id && selectedDate) {
+      fetchTimeSlots(selectedDate);
+    }
+  }, [id, selectedDate]);
 
   const fetchVenue = async () => {
     try {
@@ -58,16 +74,20 @@ export default function VenueDetailPage() {
     }
   };
 
-  const fetchTimeSlots = async () => {
+  const fetchTimeSlots = async (dateStr: string) => {
+    setLoadingSlots(true);
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const res = await api.get(`/venues/${id}/time-slots`, {
-        params: { date: today }
+      const res = await api.get(`/venues/${id}/slots`, {
+        params: { date: dateStr }
       });
       const raw = res.data;
-      setBookedSlots(Array.isArray(raw) ? raw : (raw?.bookedSlots || raw?.data?.bookedSlots || raw?.data || []));
+      const slotList = Array.isArray(raw) ? raw : (raw?.data || []);
+      setSlots(slotList);
     } catch (err) {
-      console.error(err);
+      console.error("Failed to load time slots", err);
+      setSlots([]);
+    } finally {
+      setLoadingSlots(false);
     }
   };
 
@@ -75,14 +95,21 @@ export default function VenueDetailPage() {
     const token = localStorage.getItem("token");
     if (!token) return;
     try {
-      const res = await api.get(`/favorites/${id}/check`);
+      const res = await api.get(`/favorites/${id}/check`, {
+        headers: { "X-Skip-Auth-Redirect": "true" }
+      });
       setLiked(res.data?.isFavorite || res.data?.data?.isFavorite || false);
     } catch (err) {
-      console.error(err);
+      // Optional check, silently ignore 401
     }
   };
 
   const toggleFavorite = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/login");
+      return;
+    }
     try {
       if (liked) {
         await api.delete(`/favorites/${id}`);
@@ -96,12 +123,54 @@ export default function VenueDetailPage() {
     }
   };
 
-  if (!venue) return <div className="p-10 text-center text-gray-500">Loading...</div>;
+  // Helper date pills: today, tomorrow, day after
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().split("T")[0];
+
+  const dayAfter = new Date();
+  dayAfter.setDate(dayAfter.getDate() + 2);
+  const dayAfterStr = dayAfter.toISOString().split("T")[0];
+
+  const handleBookNow = () => {
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      try {
+        const u = JSON.parse(userStr);
+        if (u.role === "admin") {
+          setPopup({
+            isOpen: true,
+            type: "warning",
+            title: "Akses Ditolak",
+            message: "Akun Admin tidak diperbolehkan melakukan pemesanan lapangan. Silakan gunakan akun customer biasa."
+          });
+          return;
+        }
+      } catch (e) {}
+    }
+
+    const params = new URLSearchParams();
+    params.set("venueId", venue.id);
+    params.set("date", selectedDate);
+    if (selSlot) {
+      params.set("time", selSlot);
+    }
+
+    router.push(`/bookings/new?${params.toString()}`);
+  };
+
+  if (!venue) {
+    return (
+      <div className="flex justify-center items-center py-24">
+        <div className="w-8 h-8 border-4 border-[#16A34A] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div>
       <Link href="/venues" className="flex items-center gap-1.5 text-gray-500 hover:text-gray-700 text-sm mb-6 transition-colors w-fit">
-        <ChevronLeft className="w-4 h-4" /> Back to Browse
+        <ChevronLeft className="w-4 h-4" /> Kembali ke Jelajah Lapangan
       </Link>
 
       {/* Gallery */}
@@ -121,12 +190,15 @@ export default function VenueDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left */}
+        {/* Left Column: Details */}
         <div className="lg:col-span-2 space-y-7">
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">{venue.name}</h1>
-              <div className="flex items-center gap-1.5 text-gray-500 text-sm mt-1"><MapPin className="w-4 h-4 text-[#16A34A]" />{venue.location || venue.address ? `${venue.location || venue.address}, ` : ''}{venue.city}</div>
+              <div className="flex items-center gap-1.5 text-gray-500 text-sm mt-1">
+                <MapPin className="w-4 h-4 text-[#16A34A]" />
+                {venue.location || venue.address ? `${venue.location || venue.address}, ` : ''}{venue.city}
+              </div>
               <div className="flex items-center gap-2 mt-2 flex-wrap">
                 <Stars rating={venue.rating || 0} size="md" />
                 <span className="text-gray-700 text-sm font-semibold">{venue.rating || 0}</span>
@@ -146,13 +218,13 @@ export default function VenueDetailPage() {
 
           {/* Description */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <h2 className="font-bold text-gray-900 mb-3">About this venue</h2>
-            <p className="text-gray-600 text-sm leading-relaxed">{venue.description || "No description provided."}</p>
+            <h2 className="font-bold text-gray-900 mb-3">Tentang Venue Ini</h2>
+            <p className="text-gray-600 text-sm leading-relaxed">{venue.description || "Tidak ada deskripsi tersedia."}</p>
           </div>
 
           {/* Facilities */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <h2 className="font-bold text-gray-900 mb-4">Facilities</h2>
+            <h2 className="font-bold text-gray-900 mb-4">Fasilitas Tersedia</h2>
             <div className="grid grid-cols-3 sm:grid-cols-5 gap-4">
               {(() => {
                 const uniqueFacilities: any[] = Array.from(
@@ -178,19 +250,28 @@ export default function VenueDetailPage() {
           {/* Reviews */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="font-bold text-gray-900">Reviews</h2>
-              <div className="flex items-center gap-1.5"><Star className="w-5 h-5 fill-yellow-400 text-yellow-400" /><span className="font-bold text-gray-900">{venue.rating || 0}</span><span className="text-gray-400 text-sm">/ 5</span></div>
+              <h2 className="font-bold text-gray-900">Ulasan Pengguna</h2>
+              <div className="flex items-center gap-1.5">
+                <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
+                <span className="font-bold text-gray-900">{venue.rating || 0}</span>
+                <span className="text-gray-400 text-sm">/ 5</span>
+              </div>
             </div>
             <div className="space-y-5">
               {reviews.length === 0 ? (
-                <p className="text-sm text-gray-500">No reviews yet.</p>
+                <p className="text-sm text-gray-500">Belum ada ulasan untuk venue ini.</p>
               ) : reviews.map((r: any) => (
                 <div key={r.id} className="border-b border-gray-50 pb-5 last:border-0 last:pb-0">
                   <div className="flex items-center gap-3 mb-2">
-                    <div className="w-8 h-8 bg-gradient-to-br from-[#16A34A] to-[#22C55E] rounded-full flex items-center justify-center text-white text-xs font-bold">{r.user?.fullName?.substring(0, 2).toUpperCase() || r.user?.name?.substring(0, 2).toUpperCase() || 'U'}</div>
+                    <div className="w-8 h-8 bg-gradient-to-br from-[#16A34A] to-[#22C55E] rounded-full flex items-center justify-center text-white text-xs font-bold">
+                      {r.user?.fullName?.substring(0, 2).toUpperCase() || r.user?.name?.substring(0, 2).toUpperCase() || 'U'}
+                    </div>
                     <div>
                       <p className="font-semibold text-gray-900 text-sm">{r.user?.fullName || r.user?.name}</p>
-                      <div className="flex items-center gap-2"><Stars rating={r.rating} /><span className="text-gray-400 text-xs">{new Date(r.createdAt).toLocaleDateString()}</span></div>
+                      <div className="flex items-center gap-2">
+                        <Stars rating={r.rating} />
+                        <span className="text-gray-400 text-xs">{new Date(r.createdAt).toLocaleDateString("id-ID")}</span>
+                      </div>
                     </div>
                   </div>
                   <p className="text-gray-600 text-sm leading-relaxed">{r.comment}</p>
@@ -200,43 +281,171 @@ export default function VenueDetailPage() {
           </div>
         </div>
 
-        {/* Right: Booking card */}
+        {/* Right Column: Interactive Date & Slot Booking Card */}
         <div className="lg:col-span-1">
-          <div className="sticky top-8 bg-white rounded-2xl border border-gray-100 shadow-lg p-6">
-            <div className="text-center mb-5 pb-5 border-b border-gray-50">
-              <p className="text-gray-400 text-sm">Starting from</p>
-              <p className="text-3xl font-bold text-[#16A34A] mt-1">{formatPrice(venue.pricePerHour || venue.price || 0)}</p>
-              <p className="text-gray-400 text-sm">per hour</p>
+          <div className="sticky top-8 bg-white rounded-2xl border border-gray-100 shadow-xl p-6 space-y-5">
+            {/* Price Header */}
+            <div className="text-center pb-4 border-b border-gray-100">
+              <p className="text-gray-400 text-xs font-medium uppercase tracking-wider">Tarif Sewa</p>
+              <p className="text-3xl font-extrabold text-[#16A34A] mt-1">
+                {formatPrice(venue.pricePerHour || venue.price || 0)}
+              </p>
+              <p className="text-gray-400 text-xs mt-0.5">per jam bermain</p>
             </div>
-            <div className="border-b border-gray-50 mb-5" />
+
+            {/* Date Selection */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-bold text-gray-800 uppercase tracking-wide flex items-center gap-1.5">
+                  <CalendarIcon className="w-3.5 h-3.5 text-[#16A34A]" /> Pilih Tanggal
+                </label>
+                <span className="text-[11px] text-[#16A34A] font-semibold">
+                  {new Date(selectedDate).toLocaleDateString("id-ID", { weekday: "short", day: "numeric", month: "short" })}
+                </span>
+              </div>
+
+              {/* Quick Date Pills */}
+              <div className="grid grid-cols-3 gap-1.5 mb-2.5">
+                {[
+                  { label: "Hari Ini", val: todayStr },
+                  { label: "Besok", val: tomorrowStr },
+                  { label: "Lusa", val: dayAfterStr },
+                ].map(p => (
+                  <button
+                    key={p.label}
+                    type="button"
+                    onClick={() => {
+                      setSelectedDate(p.val);
+                      setSelSlot(null);
+                    }}
+                    className={cx(
+                      "py-1.5 px-2 rounded-xl text-xs font-semibold border transition-all text-center",
+                      selectedDate === p.val
+                        ? "bg-[#16A34A] text-white border-[#16A34A] shadow-sm shadow-green-600/20"
+                        : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom Date Picker */}
+              <input
+                type="date"
+                min={todayStr}
+                value={selectedDate}
+                onChange={e => {
+                  if (e.target.value) {
+                    setSelectedDate(e.target.value);
+                    setSelSlot(null);
+                  }
+                }}
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-800 outline-none focus:border-[#16A34A] focus:bg-white transition-all"
+              />
+            </div>
+
+            {/* Time Slot Selection */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-bold text-gray-800 uppercase tracking-wide flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-[#16A34A]" /> Ketersediaan Slot
+                </label>
+                {loadingSlots ? (
+                  <span className="text-[11px] text-gray-400">Memeriksa slot...</span>
+                ) : (
+                  <span className="text-[11px] text-gray-500 font-medium">
+                    {slots.filter(s => !s.isBooked).length} slot tersedia
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-3 gap-1.5 max-h-48 overflow-y-auto p-2 bg-gray-50 rounded-xl border border-gray-100">
+                {loadingSlots ? (
+                  <div className="col-span-3 py-6 text-center text-xs text-gray-400">
+                    Memuat jadwal lapangan...
+                  </div>
+                ) : slots.length === 0 ? (
+                  <div className="col-span-3 py-6 text-center text-xs text-gray-400">
+                    Tidak ada jadwal operasional pada tanggal ini.
+                  </div>
+                ) : (
+                  slots.map((s: any) => {
+                    const isSelected = selSlot === s.startTime;
+                    const isUnavailable = s.isBooked;
+
+                    return (
+                      <button
+                        key={s.id || s.startTime}
+                        type="button"
+                        disabled={isUnavailable}
+                        onClick={() => setSelSlot(s.startTime)}
+                        title={s.isClosed ? `Tutup: ${s.closureReason || 'Operasional'}` : isUnavailable ? 'Sudah dibooking' : 'Tersedia'}
+                        className={cx(
+                          "py-2 px-2 rounded-xl text-xs font-semibold border transition-all text-center",
+                          isUnavailable
+                            ? "bg-red-50 text-red-400 border-red-100 cursor-not-allowed line-through opacity-70"
+                            : isSelected
+                              ? "bg-[#16A34A] text-white border-[#16A34A] shadow-md shadow-green-600/30 scale-[1.02]"
+                              : "bg-white text-gray-700 border-gray-200 hover:border-green-400 hover:bg-green-50/50"
+                        )}
+                      >
+                        {s.startTime}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Slot Status Legend */}
+              <div className="flex items-center justify-between text-[10px] text-gray-500 pt-2 px-1">
+                <div className="flex items-center gap-1">
+                  <div className="w-2.5 h-2.5 rounded bg-white border border-gray-300" />
+                  <span>Tersedia</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2.5 h-2.5 rounded bg-[#16A34A]" />
+                  <span>Dipilih</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2.5 h-2.5 rounded bg-red-100 border border-red-200" />
+                  <span>Penuh / Tutup</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Booking Summary Box */}
+            <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 text-xs space-y-1.5">
+              <div className="flex justify-between text-gray-600">
+                <span>Tanggal Dipilih:</span>
+                <span className="font-semibold text-gray-900">
+                  {new Date(selectedDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+                </span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Jam Dipilih:</span>
+                <span className={cx("font-bold", selSlot ? "text-[#16A34A]" : "text-amber-600")}>
+                  {selSlot ? `${selSlot} WIB` : "Belum dipilih"}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Button */}
             <GreenButton 
-              onClick={() => {
-                const userStr = localStorage.getItem("user");
-                if (userStr) {
-                  try {
-                    const u = JSON.parse(userStr);
-                    if (u.role === "admin") {
-                      setPopup({
-                        isOpen: true,
-                        type: "warning",
-                        title: "Akses Ditolak",
-                        message: "Akun Admin tidak diperbolehkan melakukan pemesanan lapangan. Silakan gunakan akun customer biasa."
-                      });
-                      return;
-                    }
-                  } catch (e) {}
-                }
-                const today = new Date().toISOString().split('T')[0];
-                router.push(`/bookings/new?venueId=${venue.id}&date=${today}`);
-              }} 
-              className="w-full py-4 text-base"
+              onClick={handleBookNow} 
+              className="w-full py-3.5 text-sm font-bold shadow-lg shadow-green-600/30"
             >
-              Book Now
+              {selSlot ? `Lanjut Booking (${selSlot})` : "Pilih Slot & Lanjut Booking"}
             </GreenButton>
-            <p className="text-center text-gray-400 text-xs mt-3">Free cancellation up to 2 hours before</p>
+
+            <div className="flex items-center justify-center gap-1.5 text-center text-gray-400 text-[11px]">
+              <Shield className="w-3.5 h-3.5 text-green-600" />
+              <span>Garansi transaksi aman & konfirmasi instan</span>
+            </div>
           </div>
         </div>
       </div>
+
       <PopupModal
         isOpen={popup.isOpen}
         type={popup.type}
@@ -245,5 +454,13 @@ export default function VenueDetailPage() {
         onClose={() => setPopup(prev => ({ ...prev, isOpen: false }))}
       />
     </div>
+  );
+}
+
+export default function VenueDetailPage() {
+  return (
+    <Suspense fallback={<div className="p-10 text-center text-gray-500">Memuat detail venue...</div>}>
+      <VenueDetailContent />
+    </Suspense>
   );
 }
