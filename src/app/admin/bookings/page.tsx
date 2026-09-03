@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, ChevronLeft, ChevronRight, Eye, XCircle, Download, X, Plus } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Eye, XCircle, Download, X, Plus, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/data";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -27,6 +27,7 @@ export default function AdminBookings() {
   const [offlineDate, setOfflineDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [offlineStartTime, setOfflineStartTime] = useState("19:00");
   const [offlineDuration, setOfflineDuration] = useState(1);
+  const [offlineBookingSource, setOfflineBookingSource] = useState("walk_in");
   const [offlineCustomerName, setOfflineCustomerName] = useState("");
   const [offlineCustomerPhone, setOfflineCustomerPhone] = useState("");
   const [offlinePaymentMethod, setOfflinePaymentMethod] = useState("cash");
@@ -34,6 +35,8 @@ export default function AdminBookings() {
   const [offlinePrice, setOfflinePrice] = useState("");
   const [offlineNotes, setOfflineNotes] = useState("");
   const [submittingOffline, setSubmittingOffline] = useState(false);
+  const [daySlots, setDaySlots] = useState<any[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [popup, setPopup] = useState<{
     isOpen: boolean;
     type?: PopupType;
@@ -45,6 +48,24 @@ export default function AdminBookings() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (showOfflineModal && offlineVenueId && offlineDate) {
+      fetchDaySlots(offlineVenueId, offlineDate);
+    }
+  }, [showOfflineModal, offlineVenueId, offlineDate]);
+
+  const fetchDaySlots = async (venueId: string, dateStr: string) => {
+    setLoadingSlots(true);
+    try {
+      const res = await api.get(`/venues/${venueId}/slots?date=${dateStr}`);
+      setDaySlots(Array.isArray(res.data) ? res.data : (res.data?.data || []));
+    } catch (_) {
+      setDaySlots([]);
+    } finally {
+      setLoadingSlots(false);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -100,6 +121,7 @@ export default function AdminBookings() {
         paymentStatus: offlinePaymentStatus,
         price: offlinePrice ? Number(offlinePrice) : undefined,
         notes: offlineNotes.trim() || undefined,
+        bookingSource: offlineBookingSource,
       });
 
       setShowOfflineModal(false);
@@ -247,35 +269,56 @@ export default function AdminBookings() {
             </thead>
             <tbody className="divide-y divide-gray-50 text-xs">
               {filtered.map(b => {
-                const uName = b.user?.fullName || b.user?.name || "Customer";
+                const uName = b.customerName || b.user?.fullName || b.user?.name || "Customer";
+                const isOffline = b.bookingSource && b.bookingSource !== 'online';
+                const sourceLabels: Record<string, string> = {
+                  walk_in: "Walk-in Kasir",
+                  whatsapp: "WhatsApp",
+                  phone: "Telepon",
+                  maintenance: "Maintenance",
+                  tournament: "Turnamen",
+                  manual_block: "Blokir Slot",
+                  online: "Online",
+                };
                 return (
                   <tr key={b.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-3 py-3 font-bold text-gray-700 whitespace-nowrap">{b.bookingCode ? b.bookingCode : `BK-${b.id}`}</td>
+                    <td className="px-3 py-3 font-bold text-gray-700 whitespace-nowrap">
+                      <div>{b.bookingCode ? b.bookingCode : `BK-${b.id}`}</div>
+                      {isOffline && (
+                        <span className="inline-block text-[10px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 mt-0.5">
+                          {sourceLabels[b.bookingSource] || b.bookingSource}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 bg-[#16A34A] rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0">
                           {uName.split(" ").map((w: string) => w[0]).join("").slice(0,2).toUpperCase()}
                         </div>
-                        <span className="text-gray-800 whitespace-nowrap max-w-[130px] truncate" title={uName}>{uName}</span>
+                        <div className="min-w-0">
+                          <span className="text-gray-800 font-medium whitespace-nowrap max-w-[130px] truncate block" title={uName}>{uName}</span>
+                          {b.customerPhone && <span className="text-[11px] text-gray-400 block">{b.customerPhone}</span>}
+                        </div>
                       </div>
                     </td>
                     <td className="px-3 py-3 text-gray-500 max-w-[120px] truncate" title={b.venue?.name || "Venue"}>{b.venue?.name || "Venue"}</td>
                     <td className="px-3 py-3 text-gray-500 whitespace-nowrap">
                       <div>{b.date ? new Date(b.date).toLocaleDateString("id-ID") : "-"}</div>
+                      <div className="text-[11px] text-gray-400">{b.startTime} ({b.durationHours || 1} jam)</div>
                     </td>
                     <td className="px-3 py-3 font-bold text-gray-900 whitespace-nowrap">{formatPrice(b.total ?? b.totalPrice ?? 0)}</td>
                     <td className="px-3 py-3"><StatusBadge status={b.status} /></td>
                     <td className="px-3 py-3">
                       <div className="flex gap-1">
-                        <button onClick={() => handleView(b.id)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="View">
+                        <button onClick={() => handleView(b.id)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="Lihat Detail">
                           <Eye className="w-3.5 h-3.5" />
                         </button>
-                        {(b.status === "upcoming" || b.status === "confirmed") && (
-                          <button onClick={() => handleCancel(b.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Cancel">
+                        {(b.status === "upcoming" || b.status === "confirmed" || b.status === "pending_payment") && (
+                          <button onClick={() => handleCancel(b.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Batalkan">
                             <XCircle className="w-3.5 h-3.5" />
                           </button>
                         )}
-                        <button onClick={() => setReceiptBooking(b)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Download Receipt">
+                        <button onClick={() => setReceiptBooking(b)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Cetak Struk">
                           <Download className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -330,11 +373,25 @@ export default function AdminBookings() {
                 
                 <div className="space-y-4">
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Customer</p>
-                    <p className="font-semibold text-gray-900">{viewBooking.user?.fullName || viewBooking.user?.name || '-'}</p>
-                    <p className="text-sm text-gray-500 truncate">{viewBooking.user?.email || '-'}</p>
-                    {viewBooking.user?.phone && <p className="text-sm text-gray-500">{viewBooking.user.phone}</p>}
+                    <p className="text-sm text-gray-500 mb-1">Customer / Pemesan</p>
+                    <p className="font-semibold text-gray-900">{viewBooking.customerName || viewBooking.user?.fullName || viewBooking.user?.name || '-'}</p>
+                    {viewBooking.user?.email && <p className="text-sm text-gray-500 truncate">{viewBooking.user.email}</p>}
+                    {(viewBooking.customerPhone || viewBooking.user?.phone) && (
+                      <p className="text-sm text-gray-500">{viewBooking.customerPhone || viewBooking.user?.phone}</p>
+                    )}
                   </div>
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Sumber Booking</p>
+                    <span className="inline-block text-xs font-semibold px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-200 rounded-full capitalize">
+                      {viewBooking.bookingSource || 'online'}
+                    </span>
+                  </div>
+                  {viewBooking.adminNotes && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Catatan Admin</p>
+                      <p className="text-xs text-gray-700 bg-amber-50 border border-amber-200 rounded-xl p-3">{viewBooking.adminNotes}</p>
+                    </div>
+                  )}
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Venue</p>
                     <p className="font-semibold text-gray-900">{viewBooking.venue?.name || '-'}</p>
@@ -434,23 +491,40 @@ export default function AdminBookings() {
               </div>
 
               <form onSubmit={handleSubmitOfflineBooking} className="mt-4 space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Pilih Venue *</label>
-                  <select
-                    value={offlineVenueId}
-                    onChange={e => setOfflineVenueId(e.target.value)}
-                    required
-                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-green-100"
-                  >
-                    {venuesList.map(v => (
-                      <option key={v.id} value={v.id}>
-                        {v.name} ({v.city}) - {formatPrice(v.pricePerHour)}/jam
-                      </option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Pilih Venue *</label>
+                    <select
+                      value={offlineVenueId}
+                      onChange={e => setOfflineVenueId(e.target.value)}
+                      required
+                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-green-100"
+                    >
+                      {venuesList.map(v => (
+                        <option key={v.id} value={v.id}>
+                          {v.name} ({v.city}) - {formatPrice(v.pricePerHour)}/jam
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Sumber Booking / Tipe</label>
+                    <select
+                      value={offlineBookingSource}
+                      onChange={e => setOfflineBookingSource(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 outline-none focus:border-[#16A34A]"
+                    >
+                      <option value="walk_in">Walk-in Kasir</option>
+                      <option value="whatsapp">Pesanan WhatsApp</option>
+                      <option value="phone">Telepon Manual</option>
+                      <option value="maintenance">Maintenance / Perawatan</option>
+                      <option value="tournament">Turnamen / Event</option>
+                      <option value="manual_block">Blokir Slot Operasional</option>
+                    </select>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Tanggal *</label>
                     <input
@@ -475,9 +549,6 @@ export default function AdminBookings() {
                       })}
                     </select>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Durasi Main</label>
                     <select
@@ -491,32 +562,55 @@ export default function AdminBookings() {
                       <option value={4}>4 Jam</option>
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Status Pembayaran</label>
-                    <select
-                      value={offlinePaymentStatus}
-                      onChange={e => setOfflinePaymentStatus(e.target.value)}
-                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 outline-none focus:border-[#16A34A]"
-                    >
-                      <option value="paid">Lunas (Paid)</option>
-                      <option value="unpaid">Belum Lunas (Unpaid)</option>
-                    </select>
+                </div>
+
+                {/* Real-time slot availability preview */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold text-gray-700 uppercase">Ketersediaan Slot ({offlineDate})</label>
+                    {loadingSlots && <span className="text-[11px] text-gray-400">Memeriksa slot...</span>}
+                  </div>
+                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-1 max-h-32 overflow-y-auto p-2 bg-gray-50 rounded-xl border border-gray-200">
+                    {daySlots.length === 0 ? (
+                      <div className="col-span-full py-2 text-center text-xs text-gray-400">Pilih venue & tanggal untuk memeriksa slot</div>
+                    ) : (
+                      daySlots.map(slot => {
+                        const isSelected = offlineStartTime === slot.startTime;
+                        return (
+                          <button
+                            key={slot.id || slot.startTime}
+                            type="button"
+                            disabled={slot.isBooked}
+                            onClick={() => setOfflineStartTime(slot.startTime)}
+                            className={cn(
+                              "py-1 px-1.5 rounded-lg text-[11px] font-medium border text-center transition-all",
+                              slot.isBooked
+                                ? "bg-red-50 text-red-500 border-red-200 cursor-not-allowed line-through"
+                                : isSelected
+                                  ? "bg-[#16A34A] text-white border-[#16A34A] shadow-sm font-bold"
+                                  : "bg-white text-gray-700 border-gray-200 hover:border-green-400 hover:bg-green-50"
+                            )}
+                          >
+                            {slot.startTime}
+                          </button>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Nama Pemesan / Keperluan *</label>
-                  <input
-                    type="text"
-                    value={offlineCustomerName}
-                    onChange={e => setOfflineCustomerName(e.target.value)}
-                    placeholder="misal: Budi Santoso (WA) / Maintenance Lapangan"
-                    required
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 outline-none focus:border-[#16A34A]"
-                  />
-                </div>
-
                 <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Nama Pemesan / Keperluan *</label>
+                    <input
+                      type="text"
+                      value={offlineCustomerName}
+                      onChange={e => setOfflineCustomerName(e.target.value)}
+                      placeholder="Budi Santoso / Perawatan Lampu"
+                      required
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 outline-none focus:border-[#16A34A]"
+                    />
+                  </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-700 uppercase mb-1">No. Telepon (Opsional)</label>
                     <input
@@ -527,6 +621,20 @@ export default function AdminBookings() {
                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 outline-none focus:border-[#16A34A]"
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Status Bayar</label>
+                    <select
+                      value={offlinePaymentStatus}
+                      onChange={e => setOfflinePaymentStatus(e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 outline-none focus:border-[#16A34A]"
+                    >
+                      <option value="paid">Lunas (Paid)</option>
+                      <option value="unpaid">Belum Lunas</option>
+                    </select>
+                  </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Metode Bayar</label>
                     <select
@@ -536,50 +644,74 @@ export default function AdminBookings() {
                     >
                       <option value="cash">Tunai (Kasir)</option>
                       <option value="bank_transfer">Transfer Manual</option>
-                      <option value="maintenance">Maintenance (Gratis)</option>
+                      <option value="maintenance">Gratis / Maintenance</option>
                     </select>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Total Biaya (Rp)</label>
                     <input
                       type="number"
                       value={offlinePrice}
                       onChange={e => setOfflinePrice(e.target.value)}
-                      placeholder="Otomatis dari tarif venue"
-                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 outline-none focus:border-[#16A34A]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Catatan Tambahan</label>
-                    <input
-                      type="text"
-                      value={offlineNotes}
-                      onChange={e => setOfflineNotes(e.target.value)}
-                      placeholder="DP 50k, sisa di tempat"
+                      placeholder="Otomatis tarif venue"
                       className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 outline-none focus:border-[#16A34A]"
                     />
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t border-gray-100">
-                  <button
-                    type="button"
-                    onClick={() => setShowOfflineModal(false)}
-                    className="flex-1 py-2.5 px-4 border border-gray-200 text-gray-700 font-semibold rounded-xl text-xs hover:bg-gray-50 transition-colors"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submittingOffline}
-                    className="flex-1 py-2.5 px-4 bg-[#16A34A] hover:bg-[#15803d] disabled:opacity-50 text-white font-bold rounded-xl text-xs shadow-md shadow-green-600/20 transition-colors"
-                  >
-                    {submittingOffline ? "Menyimpan..." : "Simpan Booking Offline"}
-                  </button>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Catatan Tambahan</label>
+                  <input
+                    type="text"
+                    value={offlineNotes}
+                    onChange={e => setOfflineNotes(e.target.value)}
+                    placeholder="misal: DP 50k tunai di kasir, sisa bayar setelah main"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 outline-none focus:border-[#16A34A]"
+                  />
                 </div>
+
+                {(() => {
+                  const startH = parseInt(offlineStartTime.split(":")[0], 10);
+                  const conflictSlots: string[] = [];
+                  for (let i = 0; i < offlineDuration; i++) {
+                    const t = `${(startH + i).toString().padStart(2, "0")}:00`;
+                    const match = daySlots.find(s => s.startTime === t);
+                    if (match && match.isBooked) conflictSlots.push(t);
+                  }
+                  const hasConflict = conflictSlots.length > 0;
+                  return (
+                    <>
+                      {hasConflict && (
+                        <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 shrink-0 text-red-500" />
+                          <span>
+                            <strong>Peringatan Bentrok:</strong> Jam {conflictSlots.join(", ")} sudah terisi atau diblokir. Pilih jam lain.
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex gap-3 pt-4 border-t border-gray-100">
+                        <button
+                          type="button"
+                          onClick={() => setShowOfflineModal(false)}
+                          className="flex-1 py-2.5 px-4 border border-gray-200 text-gray-700 font-semibold rounded-xl text-xs hover:bg-gray-50 transition-colors"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={submittingOffline || hasConflict}
+                          className="flex-1 py-2.5 px-4 bg-[#16A34A] hover:bg-[#15803d] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl text-xs shadow-md shadow-green-600/20 transition-colors"
+                        >
+                          {submittingOffline
+                            ? "Menyimpan..."
+                            : hasConflict
+                              ? "Jadwal Bentrok"
+                              : "Simpan Booking Offline"}
+                        </button>
+                      </div>
+                    </>
+                  );
+                })()}
               </form>
             </motion.div>
           </div>
