@@ -72,6 +72,8 @@ export default function VenueDetailPage() {
   };
 
   const checkFavorite = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
     try {
       const res = await api.get(`/favorites/${id}/check`);
       setLiked(res.data?.isFavorite || res.data?.data?.isFavorite || false);

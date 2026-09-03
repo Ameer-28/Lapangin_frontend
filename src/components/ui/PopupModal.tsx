@@ -123,7 +123,7 @@ export function PopupModal({
               </>
             ) : (
               <button
-                onClick={onClose}
+                onClick={handleConfirm}
                 className="w-full py-3 px-6 bg-[#16A34A] hover:bg-[#15803d] text-white font-bold rounded-xl shadow-lg shadow-green-600/20 transition-colors text-sm"
               >
                 {confirmLabel}

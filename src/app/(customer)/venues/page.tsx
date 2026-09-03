@@ -48,6 +48,8 @@ export default function BrowseFieldsPage() {
   };
 
   const fetchFavorites = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
     try {
       const res = await api.get('/favorites');
       setFavorites(res.data.data?.map((f: any) => f.venueId) || []);

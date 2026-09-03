@@ -23,9 +23,16 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401 && typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      const pathname = window.location.pathname;
+      const isPublic = pathname === '/' || pathname === '/venues' || pathname.startsWith('/venues/');
+      const isAuthRequest = error.config?.url?.includes('/auth/login') || error.config?.url?.includes('/auth/register');
+
+      // Only force redirect to /login if on a protected route or action, not during guest exploration
+      if (!isPublic && !isAuthRequest) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

@@ -28,6 +28,7 @@ function BookingPaymentContent() {
     type?: PopupType;
     title?: string;
     message: string;
+    onConfirm?: () => void;
   }>({ isOpen: false, message: "" });
 
   const today = new Date();
@@ -272,22 +273,34 @@ function BookingPaymentContent() {
               setStep("success");
             },
             onPending: function (result: any) {
-              setBookingSuccessData(booking);
-              setStep("success");
+              setPopup({
+                isOpen: true,
+                type: "info",
+                title: "Menunggu Pembayaran",
+                message: `Tagihan booking ${booking.bookingCode} berhasil dibuat. Silakan selesaikan pembayaran sebelum batas waktu 15 menit melalui menu Riwayat Booking.`,
+                onConfirm: () => {
+                  router.push("/history");
+                }
+              });
             },
             onError: function (result: any) {
               setPopup({
                 isOpen: true,
                 type: "error",
-                title: "Pembayaran Gagal",
-                message: result?.status_message || "Terjadi kesalahan pada transaksi pembayaran.",
+                title: "Pembayaran Tidak Berhasil",
+                message: result?.status_message || "Terjadi kesalahan pada pembayaran. Silakan coba kembali atau gunakan metode pembayaran lain.",
               });
-              setBookingSuccessData(booking);
-              setStep("success");
             },
             onClose: function () {
-              setBookingSuccessData(booking);
-              setStep("success");
+              setPopup({
+                isOpen: true,
+                type: "warning",
+                title: "Pembayaran Belum Selesai",
+                message: `Slot waktu untuk booking ${booking.bookingCode} ditahan selama 15 menit. Anda dapat menyelesaikan pembayaran melalui menu Riwayat Booking.`,
+                onConfirm: () => {
+                  router.push("/history");
+                }
+              });
             }
           });
         } else if (snapRes.data?.redirectUrl) {
@@ -300,16 +313,17 @@ function BookingPaymentContent() {
         console.error("Midtrans Snap error:", snapErr);
         let errMsg = snapErr.response?.data?.message || snapErr.message || "Payment gateway credential error";
         if (errMsg.includes("Unauthorized") || errMsg.includes("401") || errMsg.includes("client or server key")) {
-          errMsg = "Midtrans credentials on server need verification (401 Unauthorized). Booking created as pending.";
+          errMsg = "Kredensial gateway pembayaran sedang diverifikasi. Booking tersimpan sebagai pending.";
         }
         setPopup({
           isOpen: true,
           type: "warning",
-          title: "Payment Gateway",
-          message: errMsg,
+          title: "Status Pembayaran",
+          message: `${errMsg}\n\nTagihan Anda tersimpan di menu Riwayat Booking selama 15 menit.`,
+          onConfirm: () => {
+            router.push("/history");
+          }
         });
-        setBookingSuccessData(booking);
-        setStep("success");
       }
     } catch (err: any) {
       setPopup({
@@ -619,6 +633,7 @@ function BookingPaymentContent() {
         title={popup.title}
         message={popup.message}
         onClose={() => setPopup(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={popup.onConfirm}
       />
     </div>
   );
