@@ -183,11 +183,12 @@ export default function AdminBookings() {
     return matchF && matchS;
   });
 
-  const counts = {
+  const counts: Record<string, number> = {
     all: bookings.length,
-    upcoming:  bookings.filter(b => b.status === "upcoming" || b.status === "confirmed").length,
+    pending_payment: bookings.filter(b => b.status === "pending_payment").length,
+    upcoming: bookings.filter(b => b.status === "upcoming" || b.status === "confirmed").length,
     completed: bookings.filter(b => b.status === "completed").length,
-    cancelled: bookings.filter(b => b.status === "cancelled").length,
+    cancelled: bookings.filter(b => b.status === "cancelled" || b.status === "expired").length,
   };
 
   if (loading) {
@@ -199,13 +200,19 @@ export default function AdminBookings() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div className="flex gap-2 flex-wrap">
-          {(["all","upcoming","completed","cancelled"] as const).map(t => (
-            <button key={t} onClick={() => setFilter(t)}
-              className={cn("px-4 py-2 rounded-xl text-xs font-bold transition-all",
-                filter === t ? "bg-[#16A34A] text-white shadow" : "bg-white border border-gray-200 text-gray-500 hover:border-gray-300"
+          {([
+            { key: "all", label: "Semua" },
+            { key: "pending_payment", label: "Menunggu Bayar" },
+            { key: "upcoming", label: "Upcoming" },
+            { key: "completed", label: "Selesai" },
+            { key: "cancelled", label: "Dibatalkan" },
+          ] as const).map(t => (
+            <button key={t.key} onClick={() => setFilter(t.key)}
+              className={cn("px-3.5 py-2 rounded-xl text-xs font-bold transition-all",
+                filter === t.key ? "bg-[#16A34A] text-white shadow" : "bg-white border border-gray-200 text-gray-500 hover:border-gray-300"
               )}
             >
-              {t.charAt(0).toUpperCase() + t.slice(1)} ({counts[t]})
+              {t.label} ({counts[t.key] || 0})
             </button>
           ))}
         </div>

@@ -15,7 +15,7 @@ import { ReceiptModal } from "@/components/ui/ReceiptModal";
 
 export default function HistoryPage() {
   const router = useRouter();
-  const [tab, setTab] = useState<"all" | "upcoming" | "completed" | "cancelled">("all");
+  const [tab, setTab] = useState<"all" | "pending_payment" | "upcoming" | "completed" | "cancelled">("all");
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -25,6 +25,65 @@ export default function HistoryPage() {
   const [reviewComment, setReviewComment] = useState('');
   const [reviewedVenues, setReviewedVenues] = useState<Set<string>>(new Set());
   const [submittingReview, setSubmittingReview] = useState(false);
+
+  const loadSnapScript = (isProd: boolean, clientKey: string): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const snapUrl = isProd
+        ? "https://app.midtrans.com/snap/snap.js"
+        : "https://app.sandbox.midtrans.com/snap/snap.js";
+
+      const existingScript = document.querySelector(`script[src="${snapUrl}"]`);
+      if (existingScript && (window as any).snap) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = snapUrl;
+      script.setAttribute("data-client-key", clientKey);
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handlePayPending = async (b: any) => {
+    try {
+      const res = await api.post("/payments/create-snap-token", { bookingId: b.id });
+      const { snapToken, isProduction, clientKey } = res.data;
+      await loadSnapScript(isProduction, clientKey);
+      if ((window as any).snap && snapToken) {
+        (window as any).snap.pay(snapToken, {
+          onSuccess: () => {
+            fetchBookings();
+            setPopup({
+              isOpen: true,
+              type: "success",
+              title: "Pembayaran Berhasil",
+              message: "Pembayaran Anda telah berhasil dan jadwal booking telah aktif!",
+            });
+          },
+          onPending: () => {
+            fetchBookings();
+          },
+          onError: () => {
+            setPopup({
+              isOpen: true,
+              type: "error",
+              title: "Pembayaran Gagal",
+              message: "Pembayaran tidak berhasil. Silakan coba kembali.",
+            });
+          },
+        });
+      }
+    } catch (e: any) {
+      setPopup({
+        isOpen: true,
+        type: "error",
+        title: "Gagal Membuka Pembayaran",
+        message: e.response?.data?.message || "Tidak dapat memuat gateway pembayaran.",
+      });
+    }
+  };
 
   const [popup, setPopup] = useState<{
     isOpen: boolean;
@@ -144,17 +203,31 @@ export default function HistoryPage() {
 
       {/* Tabs */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-hide">
-        {(["all","upcoming","completed","cancelled"] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={cn("px-5 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all",
-              tab === t ? "bg-[#16A34A] text-[#ffffff] shadow-md" : "bg-white text-gray-500 border border-gray-200 hover:border-gray-300"
-            )}
-          >
-            {t.charAt(0).toUpperCase() + t.slice(1)}
-            {" "}
-            <span className="ml-1 opacity-70">({(tab === "all" ? bookings : bookings.filter(b => b.status === t)).length})</span>
-          </button>
-        ))}
+        {([
+          { key: "all", label: "Semua" },
+          { key: "pending_payment", label: "Menunggu Bayar" },
+          { key: "upcoming", label: "Upcoming" },
+          { key: "completed", label: "Selesai" },
+          { key: "cancelled", label: "Dibatalkan" },
+        ] as const).map(t => {
+          const count = t.key === "all" ? bookings.length : bookings.filter(b => b.status === t.key).length;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key as any)}
+              className={cn(
+                "px-4 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all",
+                tab === t.key
+                  ? "bg-[#16A34A] text-white shadow-md"
+                  : "bg-white text-gray-500 border border-gray-200 hover:border-gray-300"
+              )}
+            >
+              {t.label}
+              {" "}
+              <span className="ml-1 opacity-80">({count})</span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="space-y-4">
@@ -175,7 +248,14 @@ export default function HistoryPage() {
                     <p className="font-bold text-gray-900">{b.venue?.name || "Futsal Venue"}</p>
                     <p className="text-gray-400 text-xs mt-0.5">{b.bookingCode || `#${String(b.id).substring(0, 8)}`}</p>
                   </div>
-                  <StatusBadge status={b.status} />
+                  <div className="flex items-center gap-2">
+                    {b.status === "pending_payment" && b.paymentExpiresAt && (
+                      <span className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-medium">
+                        Batas: {new Date(b.paymentExpiresAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    )}
+                    <StatusBadge status={b.status} />
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-x-5 gap-y-1 mt-3 text-sm text-gray-500">
                   <span className="flex items-center gap-1.5"><Calendar className="w-4 h-4 text-[#16A34A]" />{b.date ? new Date(b.date).toLocaleDateString() : '-'}</span>
@@ -184,6 +264,22 @@ export default function HistoryPage() {
                 <div className="flex items-center justify-between mt-4 flex-wrap gap-3">
                   <span className="font-bold text-[#16A34A] text-lg">{formatPrice(b.total ?? b.totalPrice ?? 0)}</span>
                   <div className="flex gap-2">
+                    {b.status === "pending_payment" && (
+                      <>
+                        <button
+                          onClick={() => handleCancel(b.id)}
+                          className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-xl text-xs font-semibold hover:bg-gray-50 transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" /> Batalkan
+                        </button>
+                        <button
+                          onClick={() => handlePayPending(b)}
+                          className="flex items-center gap-1.5 px-4 py-2 bg-[#16A34A] hover:bg-[#15803d] text-white rounded-xl text-xs font-bold shadow-md shadow-green-600/20 transition-colors"
+                        >
+                          Bayar Sekarang
+                        </button>
+                      </>
+                    )}
                     {b.status === "completed" && (
                       reviewedVenues.has(b.venueId) ? (
                         <span className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 rounded-xl text-xs font-semibold text-gray-500 cursor-not-allowed">
@@ -200,7 +296,7 @@ export default function HistoryPage() {
                         <Download className="w-3.5 h-3.5" /> Receipt
                       </button>
                     )}
-                    {(b.status === "completed" || b.status === "cancelled") && (
+                    {(b.status === "completed" || b.status === "cancelled" || b.status === "expired") && (
                       <Link href={`/venues/${b.venueId}`} className="flex items-center gap-1.5 px-4 py-2 bg-[#16A34A] text-white rounded-xl text-xs font-semibold hover:bg-[#15803d] transition-colors">
                         <RefreshCw className="w-3.5 h-3.5" /> Rebook
                       </Link>
