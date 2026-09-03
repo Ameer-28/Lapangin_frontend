@@ -58,9 +58,14 @@ export default function HistoryPage() {
   };
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/login");
+      return;
+    }
     fetchBookings();
     fetchReviewedVenues();
-  }, []);
+  }, [router]);
 
   const handleSubmitReview = async () => {
     if (!reviewBookingId || reviewRating === 0) return;

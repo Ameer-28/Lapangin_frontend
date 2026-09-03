@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { 
@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 
 import { PopupModal, PopupType } from "@/components/ui/PopupModal";
 
-export default function BookingPaymentPage() {
+function BookingPaymentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const venueId = searchParams.get("venueId");
@@ -48,6 +48,11 @@ export default function BookingPaymentPage() {
   const [bookingSuccessData, setBookingSuccessData] = useState<any>(null);
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/login");
+      return;
+    }
     if (!venueId) return;
     const fetchVenue = async () => {
       try {
@@ -616,5 +621,17 @@ export default function BookingPaymentPage() {
         onClose={() => setPopup(prev => ({ ...prev, isOpen: false }))}
       />
     </div>
+  );
+}
+
+export default function BookingPaymentPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-[50vh] items-center justify-center text-gray-500">
+        Loading booking details...
+      </div>
+    }>
+      <BookingPaymentContent />
+    </Suspense>
   );
 }

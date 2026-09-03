@@ -49,6 +49,12 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+
     // 1. Instant populate from localStorage so form is never blank
     const userStr = localStorage.getItem("user");
     if (userStr) {
