@@ -245,7 +245,14 @@ export default function HistoryPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div>
-                    <p className="font-bold text-gray-900">{b.venue?.name || "Futsal Venue"}</p>
+                    <p className="font-bold text-gray-900 flex items-center gap-2 flex-wrap">
+                      <span>{b.venue?.name || "Futsal Venue"}</span>
+                      {b.court?.name && (
+                        <span className="text-[11px] font-semibold px-2 py-0.5 bg-green-50 text-[#16A34A] rounded-md border border-green-200">
+                          {b.court.name}
+                        </span>
+                      )}
+                    </p>
                     <p className="text-gray-400 text-xs mt-0.5">{b.bookingCode || `#${String(b.id).substring(0, 8)}`}</p>
                   </div>
                   <div className="flex items-center gap-2">

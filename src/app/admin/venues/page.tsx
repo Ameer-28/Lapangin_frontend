@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, Plus, PenLine, Trash2, X, ChevronLeft, ChevronRight, CalendarOff, AlertTriangle, Calendar } from "lucide-react";
+import { Search, Plus, PenLine, Trash2, X, ChevronLeft, ChevronRight, CalendarOff, AlertTriangle, Calendar, Layers } from "lucide-react";
 import api from "@/lib/api";
 import { formatPrice } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -33,6 +33,145 @@ export default function AdminVenues() {
   const [closureEndTime, setClosureEndTime] = useState("17:00");
   const [closureReason, setClosureReason] = useState("");
   const [submittingClosure, setSubmittingClosure] = useState(false);
+
+  // Multi-court management states
+  const [courtsVenue, setCourtsVenue] = useState<any | null>(null);
+  const [courtsList, setCourtsList] = useState<any[]>([]);
+  const [loadingCourts, setLoadingCourts] = useState(false);
+  const [showAddCourt, setShowAddCourt] = useState(false);
+  const [editingCourt, setEditingCourt] = useState<any | null>(null);
+  const [courtName, setCourtName] = useState("");
+  const [courtType, setCourtType] = useState("Vinyl");
+  const [courtPrice, setCourtPrice] = useState<string>("");
+  const [courtDescription, setCourtDescription] = useState("");
+  const [submittingCourt, setSubmittingCourt] = useState(false);
+
+  const handleOpenCourts = async (venue: any) => {
+    setCourtsVenue(venue);
+    setLoadingCourts(true);
+    setShowAddCourt(false);
+    setEditingCourt(null);
+    try {
+      const res = await api.get(`/admin/venues/${venue.id}/courts`);
+      setCourtsList(res.data || []);
+    } catch (_) {
+      setCourtsList([]);
+    } finally {
+      setLoadingCourts(false);
+    }
+  };
+
+  const handleStartAddCourt = () => {
+    setEditingCourt(null);
+    setCourtName(`Lapangan ${courtsList.length + 1}`);
+    setCourtType("Vinyl");
+    setCourtPrice("");
+    setCourtDescription("");
+    setShowAddCourt(true);
+  };
+
+  const handleStartEditCourt = (court: any) => {
+    setEditingCourt(court);
+    setCourtName(court.name);
+    setCourtType(court.courtType || "Vinyl");
+    setCourtPrice(court.pricePerHour ? court.pricePerHour.toString() : "");
+    setCourtDescription(court.description || "");
+    setShowAddCourt(true);
+  };
+
+  const handleSaveCourt = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!courtsVenue || !courtName.trim()) return;
+
+    setSubmittingCourt(true);
+    try {
+      const payload: any = {
+        name: courtName.trim(),
+        courtType,
+        description: courtDescription.trim() || undefined,
+        pricePerHour: courtPrice ? parseInt(courtPrice, 10) : null,
+      };
+
+      if (editingCourt) {
+        await api.patch(`/admin/courts/${editingCourt.id}`, payload);
+        setPopup({
+          isOpen: true,
+          type: "success",
+          title: "Lapangan Diperbarui",
+          message: `Lapangan "${courtName}" berhasil diperbarui.`,
+        });
+      } else {
+        await api.post(`/admin/venues/${courtsVenue.id}/courts`, payload);
+        setPopup({
+          isOpen: true,
+          type: "success",
+          title: "Lapangan Ditambahkan",
+          message: `Lapangan "${courtName}" berhasil ditambahkan ke venue.`,
+        });
+      }
+
+      setShowAddCourt(false);
+      setEditingCourt(null);
+      const res = await api.get(`/admin/venues/${courtsVenue.id}/courts`);
+      setCourtsList(res.data || []);
+      fetchVenues();
+    } catch (err: any) {
+      setPopup({
+        isOpen: true,
+        type: "error",
+        title: "Gagal Menyimpan Lapangan",
+        message: err.response?.data?.message || "Terjadi kesalahan saat menyimpan data lapangan.",
+      });
+    } finally {
+      setSubmittingCourt(false);
+    }
+  };
+
+  const handleToggleCourtStatus = async (court: any) => {
+    try {
+      await api.patch(`/admin/courts/${court.id}/toggle-status`);
+      const res = await api.get(`/admin/venues/${courtsVenue.id}/courts`);
+      setCourtsList(res.data || []);
+      fetchVenues();
+    } catch (err: any) {
+      setPopup({
+        isOpen: true,
+        type: "error",
+        title: "Gagal Mengubah Status",
+        message: err.response?.data?.message || "Gagal mengubah status aktif lapangan.",
+      });
+    }
+  };
+
+  const handleDeleteCourt = (court: any) => {
+    setPopup({
+      isOpen: true,
+      type: "confirm",
+      title: `Hapus Lapangan?`,
+      message: `Apakah Anda yakin ingin menghapus "${court.name}"? Lapangan yang memiliki riwayat booking aktif tidak dapat dihapus.`,
+      onConfirm: async () => {
+        try {
+          await api.delete(`/admin/courts/${court.id}`);
+          const res = await api.get(`/admin/venues/${courtsVenue.id}/courts`);
+          setCourtsList(res.data || []);
+          fetchVenues();
+          setPopup({
+            isOpen: true,
+            type: "success",
+            title: "Lapangan Dihapus",
+            message: `Lapangan "${court.name}" berhasil dihapus.`,
+          });
+        } catch (err: any) {
+          setPopup({
+            isOpen: true,
+            type: "error",
+            title: "Gagal Menghapus Lapangan",
+            message: err.response?.data?.message || "Tidak dapat menghapus lapangan.",
+          });
+        }
+      },
+    });
+  };
 
   useEffect(() => {
     fetchVenues();
@@ -538,6 +677,9 @@ export default function AdminVenues() {
                       <button onClick={() => setEditId(v.id)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="Edit">
                         <PenLine className="w-3.5 h-3.5" />
                       </button>
+                      <button onClick={() => handleOpenCourts(v)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Kelola Lapangan / Courts">
+                        <Layers className="w-3.5 h-3.5" />
+                      </button>
                       <button onClick={() => handleOpenClosures(v)} className="p-1 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors" title="Penutupan / Libur Operasional">
                         <CalendarOff className="w-3.5 h-3.5" />
                       </button>
@@ -683,6 +825,216 @@ export default function AdminVenues() {
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Multi-Court Management Modal */}
+      {courtsVenue && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl"
+          >
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-gray-900 text-base flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-[#16A34A]" /> Kelola Lapangan (Courts)
+                </h3>
+                <p className="text-xs text-gray-500">{courtsVenue.name} · {courtsVenue.city}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setCourtsVenue(null);
+                  setShowAddCourt(false);
+                }}
+                className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-6">
+              {/* Add / Edit Form */}
+              {showAddCourt ? (
+                <form onSubmit={handleSaveCourt} className="bg-green-50/50 border border-green-200 rounded-2xl p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-gray-900 text-sm">
+                      {editingCourt ? `Edit Lapangan: ${editingCourt.name}` : "Tambah Lapangan Baru"}
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddCourt(false)}
+                      className="text-xs text-gray-500 hover:text-gray-700"
+                    >
+                      Batal
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Nama Lapangan *</label>
+                      <input
+                        type="text"
+                        required
+                        value={courtName}
+                        onChange={e => setCourtName(e.target.value)}
+                        placeholder="Contoh: Lapangan 1 (Utama)"
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:border-[#16A34A] transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Tipe / Permukaan *</label>
+                      <select
+                        value={courtType}
+                        onChange={e => setCourtType(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:border-[#16A34A] transition-all"
+                      >
+                        <option value="Vinyl">Vinyl (Indoor)</option>
+                        <option value="Rumput Sintetis">Rumput Sintetis (Outdoor/Mini Soccer)</option>
+                        <option value="Parquette">Parquette (Kayu / Interlock)</option>
+                        <option value="Semen">Semen / Flexi Pave</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                        Tarif per Jam (Opsional)
+                      </label>
+                      <input
+                        type="number"
+                        value={courtPrice}
+                        onChange={e => setCourtPrice(e.target.value)}
+                        placeholder={`Default venue: ${formatPrice(courtsVenue.pricePerHour || 0)}`}
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:border-[#16A34A] transition-all"
+                      />
+                      <p className="text-[10px] text-gray-400 mt-1">Kosongkan jika mengikuti tarif utama venue.</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Keterangan / Catatan</label>
+                      <input
+                        type="text"
+                        value={courtDescription}
+                        onChange={e => setCourtDescription(e.target.value)}
+                        placeholder="Contoh: Lapangan standar turnamen internasional"
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:border-[#16A34A] transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddCourt(false)}
+                      className="px-4 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submittingCourt}
+                      className="px-5 py-2 bg-[#16A34A] text-white rounded-xl text-xs font-bold hover:bg-[#15803D] disabled:opacity-50 transition-colors shadow-sm"
+                    >
+                      {submittingCourt ? "Menyimpan..." : editingCourt ? "Simpan Perubahan" : "Tambahkan Lapangan"}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Daftar Lapangan ({courtsList.length})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleStartAddCourt}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#16A34A] text-white rounded-xl text-xs font-bold hover:bg-[#15803D] transition-colors shadow-sm"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Tambah Lapangan
+                  </button>
+                </div>
+              )}
+
+              {/* Courts List */}
+              {loadingCourts ? (
+                <div className="py-12 text-center text-xs text-gray-400">Memuat data lapangan...</div>
+              ) : courtsList.length === 0 ? (
+                <div className="py-12 text-center text-xs text-gray-400 bg-gray-50 rounded-2xl border border-gray-100">
+                  Belum ada lapangan yang terdaftar di venue ini.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {courtsList.map((court: any) => {
+                    const priceDisplay = court.pricePerHour 
+                      ? formatPrice(court.pricePerHour) 
+                      : `${formatPrice(courtsVenue.pricePerHour || 0)} (Sama dg Venue)`;
+
+                    return (
+                      <div
+                        key={court.id}
+                        className={cn(
+                          "p-4 rounded-xl border transition-all flex items-center justify-between gap-4",
+                          court.isActive
+                            ? "bg-white border-gray-200 shadow-sm"
+                            : "bg-gray-50 border-gray-200 opacity-60"
+                        )}
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-bold text-gray-900">{court.name}</span>
+                            <span className={cn(
+                              "text-[10px] px-2 py-0.5 rounded-full font-semibold",
+                              court.courtType?.includes("Rumput") ? "bg-emerald-100 text-emerald-800" : "bg-blue-100 text-blue-800"
+                            )}>
+                              {court.courtType || "Vinyl"}
+                            </span>
+                            <button
+                              onClick={() => handleToggleCourtStatus(court)}
+                              className={cn(
+                                "text-[10px] px-2 py-0.5 rounded-full font-bold transition-all",
+                                court.isActive
+                                  ? "bg-green-50 text-[#16A34A] hover:bg-green-100"
+                                  : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                              )}
+                              title="Klik untuk mengubah status aktif/nonaktif"
+                            >
+                              {court.isActive ? "● Aktif" : "○ Nonaktif"}
+                            </button>
+                          </div>
+                          {court.description && (
+                            <p className="text-xs text-gray-500 mt-1 line-clamp-1">{court.description}</p>
+                          )}
+                          <div className="flex items-center gap-2 mt-1.5 text-xs text-gray-600">
+                            <span>Tarif: <strong className="text-[#16A34A]">{priceDisplay}</strong> /jam</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => handleStartEditCourt(court)}
+                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Edit Lapangan"
+                          >
+                            <PenLine className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCourt(court)}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Hapus Lapangan"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}

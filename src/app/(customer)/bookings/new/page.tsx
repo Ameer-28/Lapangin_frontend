@@ -34,6 +34,7 @@ function BookingPaymentContent() {
   const today = new Date();
   const dateParam = searchParams.get("date");
   const timeParam = searchParams.get("time");
+  const courtParam = searchParams.get("courtId");
   const parsedDate = dateParam ? new Date(dateParam) : today;
   const initYear = !isNaN(parsedDate.getTime()) ? parsedDate.getFullYear() : today.getFullYear();
   const initMonth = !isNaN(parsedDate.getTime()) ? parsedDate.getMonth() : today.getMonth();
@@ -43,6 +44,7 @@ function BookingPaymentContent() {
   const [month, setMonth] = useState(initMonth);
   const [selDate, setSelDate] = useState(initDay);
   
+  const [selectedCourtId, setSelectedCourtId] = useState<string | null>(courtParam || null);
   const [timeSlots, setTimeSlots] = useState<any[]>([]);
   const [selTime, setSelTime] = useState<string | null>(timeParam || null);
   const [duration, setDuration] = useState(1);
@@ -65,7 +67,12 @@ function BookingPaymentContent() {
     const fetchVenue = async () => {
       try {
         const res = await api.get(`/venues/${venueId}`);
-        setVenue(res.data.data || res.data);
+        const v = res.data.data || res.data;
+        setVenue(v);
+        if (v.courts && v.courts.length > 0 && !selectedCourtId) {
+          const active = v.courts.find((c: any) => c.isActive) || v.courts[0];
+          setSelectedCourtId(active.id);
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -81,7 +88,8 @@ function BookingPaymentContent() {
       try {
         const d = String(selDate).padStart(2, '0');
         const m = String(month + 1).padStart(2, '0');
-        const res = await api.get(`/venues/${venueId}/time-slots?date=${year}-${m}-${d}`);
+        const courtQuery = selectedCourtId ? `&courtId=${selectedCourtId}` : '';
+        const res = await api.get(`/venues/${venueId}/slots?date=${year}-${m}-${d}${courtQuery}`);
         const raw = res.data;
         setTimeSlots(Array.isArray(raw) ? raw : (raw?.data || []));
       } catch (err) {
@@ -89,7 +97,7 @@ function BookingPaymentContent() {
       }
     };
     fetchSlots();
-  }, [venueId, selDate, month, year]);
+  }, [venueId, selectedCourtId, selDate, month, year]);
 
   if (loading || !venue) {
     return <div className="p-8 text-center text-gray-500">Loading...</div>;
@@ -98,7 +106,9 @@ function BookingPaymentContent() {
   const daysInMonth = getDaysInMonth(year, month);
   const firstDay = getFirstDayOfMonth(year, month);
 
-  const price = venue.pricePerHour || venue.price || 0;
+  const courtsList = venue.courts || [];
+  const currentCourt = courtsList.find((c: any) => c.id === selectedCourtId) || courtsList[0];
+  const price = currentCourt?.pricePerHour ?? (venue.pricePerHour || venue.price || 0);
   const subtotal = price * duration;
   const discountAmount = subtotal * discountPercent;
   const serviceFee = 5000;
@@ -252,6 +262,7 @@ function BookingPaymentContent() {
       const m = String(month + 1).padStart(2, '0');
       const res = await api.post("/bookings", {
         venueId: venueId,
+        courtId: selectedCourtId || undefined,
         date: `${year}-${m}-${d}`,
         startTime: selTime,
         durationHours: duration,
@@ -365,6 +376,7 @@ function BookingPaymentContent() {
           <div className="bg-gray-50 rounded-2xl p-5 text-left space-y-3 mb-6">
             <div className="flex justify-between text-sm"><span className="text-gray-500">Booking Code</span><span className="font-bold text-gray-900">{bookingSuccessData.bookingCode || bookingSuccessData.id || "BK-NEW"}</span></div>
             <div className="flex justify-between text-sm"><span className="text-gray-500">Venue</span><span className="font-semibold text-gray-800">{venue.name}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-gray-500">Lapangan</span><span className="font-bold text-[#16A34A]">{bookingSuccessData.court?.name || currentCourt?.name || "Lapangan 1 (Utama)"}</span></div>
             <div className="flex justify-between text-sm"><span className="text-gray-500">Date</span><span className="font-semibold text-gray-800">{bookingSuccessData.date ? new Date(bookingSuccessData.date).toLocaleDateString() : `${selDate}/${month+1}/${year}`}</span></div>
             <div className="flex justify-between text-sm"><span className="text-gray-500">Time</span><span className="font-semibold text-gray-800">{bookingSuccessData.startTime || selTime}</span></div>
             <div className="flex justify-between text-sm border-t border-gray-200 pt-3"><span className="text-gray-500 font-semibold font-medium">Total Paid</span><span className="font-bold text-[#16A34A] text-base">{formatPrice(bookingSuccessData.total || bookingSuccessData.totalPrice || total)}</span></div>
@@ -410,6 +422,67 @@ function BookingPaymentContent() {
         <div className="lg:col-span-2 space-y-6">
           {step === "booking" ? (
             <>
+              {/* Court Selection */}
+              {venue.courts && venue.courts.length > 0 && (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                      <Award className="w-5 h-5 text-[#16A34A]" /> Pilih Lapangan
+                    </h2>
+                    <span className="text-xs text-gray-500 font-medium">
+                      {venue.courts.filter((c: any) => c.isActive).length} Lapangan Tersedia
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {venue.courts.map((c: any) => {
+                      const isSel = (selectedCourtId === c.id) || (!selectedCourtId && c.id === venue.courts[0]?.id);
+                      const cPrice = c.pricePerHour ?? venue.pricePerHour ?? 0;
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          disabled={!c.isActive}
+                          onClick={() => {
+                            setSelectedCourtId(c.id);
+                            setSelTime(null);
+                          }}
+                          className={cn(
+                            "p-3.5 rounded-xl border text-left transition-all flex items-center justify-between",
+                            !c.isActive
+                              ? "bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed"
+                              : isSel
+                                ? "bg-green-50 border-[#16A34A] ring-1 ring-[#16A34A] shadow-sm"
+                                : "bg-white border-gray-200 hover:border-gray-300"
+                          )}
+                        >
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className={cn("text-sm font-bold", isSel ? "text-green-900" : "text-gray-900")}>
+                                {c.name}
+                              </span>
+                              <span className={cn(
+                                "text-[10px] px-2 py-0.5 rounded-full font-semibold",
+                                c.courtType?.includes("Rumput") ? "bg-emerald-100 text-emerald-800" : "bg-blue-100 text-blue-800"
+                              )}>
+                                {c.courtType || "Vinyl"}
+                              </span>
+                            </div>
+                            {c.description && (
+                              <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{c.description}</p>
+                            )}
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="text-xs font-bold text-[#16A34A]">{formatPrice(cPrice)}</span>
+                            <span className="text-[10px] text-gray-400 block">/jam</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Calendar */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                 <div className="flex items-center justify-between mb-5">
@@ -585,6 +658,10 @@ function BookingPaymentContent() {
             </div>
 
             <div className="bg-gray-50 rounded-xl p-4 space-y-2.5">
+              <div className="flex items-center justify-between text-xs text-gray-700 font-semibold border-b border-gray-200 pb-2">
+                <span>Lapangan:</span>
+                <span className="text-[#16A34A]">{currentCourt?.name || 'Lapangan 1 (Utama)'}</span>
+              </div>
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Calendar className="w-4 h-4 text-[#16A34A]" />
                 {MONTHS[month]} {selDate}, {year}

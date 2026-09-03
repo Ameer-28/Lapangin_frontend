@@ -28,11 +28,15 @@ export default function AdminBookings() {
   const [rescheduleSlots, setRescheduleSlots] = useState<any[]>([]);
   const [loadingRescheduleSlots, setLoadingRescheduleSlots] = useState(false);
   const [submittingReschedule, setSubmittingReschedule] = useState(false);
+  const [rescheduleCourts, setRescheduleCourts] = useState<any[]>([]);
+  const [rescheduleCourtId, setRescheduleCourtId] = useState("");
 
   // Offline booking modal states
   const [showOfflineModal, setShowOfflineModal] = useState(false);
   const [venuesList, setVenuesList] = useState<any[]>([]);
   const [offlineVenueId, setOfflineVenueId] = useState("");
+  const [offlineCourts, setOfflineCourts] = useState<any[]>([]);
+  const [offlineCourtId, setOfflineCourtId] = useState("");
   const [offlineDate, setOfflineDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [offlineStartTime, setOfflineStartTime] = useState("19:00");
   const [offlineDuration, setOfflineDuration] = useState(1);
@@ -59,15 +63,32 @@ export default function AdminBookings() {
   }, []);
 
   useEffect(() => {
-    if (showOfflineModal && offlineVenueId && offlineDate) {
-      fetchDaySlots(offlineVenueId, offlineDate);
+    if (offlineVenueId) {
+      api.get(`/admin/venues/${offlineVenueId}/courts`)
+        .then(res => {
+          const courts = res.data || [];
+          setOfflineCourts(courts);
+          const active = courts.find((c: any) => c.isActive) || courts[0];
+          setOfflineCourtId(active ? active.id : "");
+        })
+        .catch(() => {
+          setOfflineCourts([]);
+          setOfflineCourtId("");
+        });
     }
-  }, [showOfflineModal, offlineVenueId, offlineDate]);
+  }, [offlineVenueId]);
 
-  const fetchDaySlots = async (venueId: string, dateStr: string) => {
+  useEffect(() => {
+    if (showOfflineModal && offlineVenueId && offlineDate) {
+      fetchDaySlots(offlineVenueId, offlineDate, offlineCourtId);
+    }
+  }, [showOfflineModal, offlineVenueId, offlineDate, offlineCourtId]);
+
+  const fetchDaySlots = async (venueId: string, dateStr: string, courtIdStr?: string) => {
     setLoadingSlots(true);
     try {
-      const res = await api.get(`/venues/${venueId}/slots?date=${dateStr}`);
+      const courtQuery = courtIdStr ? `&courtId=${courtIdStr}` : '';
+      const res = await api.get(`/venues/${venueId}/slots?date=${dateStr}${courtQuery}`);
       setDaySlots(Array.isArray(res.data) ? res.data : (res.data?.data || []));
     } catch (_) {
       setDaySlots([]);
@@ -80,21 +101,32 @@ export default function AdminBookings() {
     if (rescheduleBooking && rescheduleDate) {
       setLoadingRescheduleSlots(true);
       const vId = rescheduleBooking.venueId || rescheduleBooking.venue?.id;
-      api.get(`/venues/${vId}/slots?date=${rescheduleDate}`)
+      const courtQuery = rescheduleCourtId ? `&courtId=${rescheduleCourtId}` : '';
+      api.get(`/venues/${vId}/slots?date=${rescheduleDate}${courtQuery}`)
         .then(res => {
           setRescheduleSlots(Array.isArray(res.data) ? res.data : (res.data?.data || []));
         })
         .catch(() => setRescheduleSlots([]))
         .finally(() => setLoadingRescheduleSlots(false));
     }
-  }, [rescheduleBooking, rescheduleDate]);
+  }, [rescheduleBooking, rescheduleDate, rescheduleCourtId]);
 
-  const handleOpenReschedule = (b: any) => {
+  const handleOpenReschedule = async (b: any) => {
     setRescheduleBooking(b);
     const curDate = b.date ? new Date(b.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0];
     setRescheduleDate(curDate);
     setRescheduleStartTime(b.startTime || "19:00");
     setRescheduleReason("");
+    const vId = b.venueId || b.venue?.id;
+    try {
+      const res = await api.get(`/admin/venues/${vId}/courts`);
+      const courts = res.data || [];
+      setRescheduleCourts(courts);
+      setRescheduleCourtId(b.courtId || b.court?.id || courts[0]?.id || "");
+    } catch (_) {
+      setRescheduleCourts([]);
+      setRescheduleCourtId("");
+    }
   };
 
   const handleSubmitReschedule = async (e: React.FormEvent) => {
@@ -104,6 +136,7 @@ export default function AdminBookings() {
     setSubmittingReschedule(true);
     try {
       await api.patch(`/admin/bookings/${rescheduleBooking.id}/reschedule`, {
+        newCourtId: rescheduleCourtId || undefined,
         newDate: rescheduleDate,
         newStartTime: rescheduleStartTime,
         reason: rescheduleReason.trim() || undefined,
@@ -174,6 +207,7 @@ export default function AdminBookings() {
     try {
       await api.post("/admin/bookings", {
         venueId: offlineVenueId,
+        courtId: offlineCourtId || undefined,
         date: offlineDate,
         startTime: offlineStartTime,
         durationHours: Number(offlineDuration),
@@ -363,7 +397,16 @@ export default function AdminBookings() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-3 py-3 text-gray-500 max-w-[120px] truncate" title={b.venue?.name || "Venue"}>{b.venue?.name || "Venue"}</td>
+                    <td className="px-3 py-3 whitespace-nowrap">
+                      <div className="font-semibold text-gray-800" title={b.venue?.name || "Venue"}>{b.venue?.name || "Venue"}</div>
+                      {b.court?.name ? (
+                        <span className="inline-block text-[10px] font-semibold text-[#16A34A] bg-green-50 px-1.5 py-0.5 rounded border border-green-200 mt-0.5">
+                          {b.court.name}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-gray-400 block">{b.venue?.city || ""}</span>
+                      )}
+                    </td>
                     <td className="px-3 py-3 text-gray-500 whitespace-nowrap">
                       <div>{b.date ? new Date(b.date).toLocaleDateString("id-ID") : "-"}</div>
                       <div className="text-[11px] text-gray-400">{b.startTime} ({b.durationHours || 1} jam)</div>
@@ -460,9 +503,14 @@ export default function AdminBookings() {
                     </div>
                   )}
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Venue</p>
+                    <p className="text-sm text-gray-500 mb-1">Venue & Lapangan</p>
                     <p className="font-semibold text-gray-900">{viewBooking.venue?.name || '-'}</p>
                     <p className="text-sm text-gray-500">{viewBooking.venue?.city || '-'}</p>
+                    {viewBooking.court?.name && (
+                      <p className="text-xs font-bold text-[#16A34A] bg-green-50 px-2.5 py-1 rounded-lg border border-green-200 mt-1.5 inline-block">
+                        {viewBooking.court.name} ({viewBooking.court.courtType || 'Vinyl'})
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -558,28 +606,47 @@ export default function AdminBookings() {
               </div>
 
               <form onSubmit={handleSubmitOfflineBooking} className="mt-4 space-y-4">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Pilih Venue *</label>
                     <select
                       value={offlineVenueId}
                       onChange={e => setOfflineVenueId(e.target.value)}
                       required
-                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-green-100"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-green-100"
                     >
                       {venuesList.map(v => (
                         <option key={v.id} value={v.id}>
-                          {v.name} ({v.city}) - {formatPrice(v.pricePerHour)}/jam
+                          {v.name} ({v.city})
                         </option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Sumber Booking / Tipe</label>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Pilih Lapangan *</label>
+                    <select
+                      value={offlineCourtId}
+                      onChange={e => setOfflineCourtId(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 outline-none focus:border-[#16A34A]"
+                    >
+                      {offlineCourts.length === 0 ? (
+                        <option value="">(Lapangan Utama)</option>
+                      ) : (
+                        offlineCourts.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} ({c.courtType || 'Vinyl'}) {c.pricePerHour ? `- ${formatPrice(c.pricePerHour)}/jam` : ''}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Sumber Booking</label>
                     <select
                       value={offlineBookingSource}
                       onChange={e => setOfflineBookingSource(e.target.value)}
-                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 outline-none focus:border-[#16A34A]"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 outline-none focus:border-[#16A34A]"
                     >
                       <option value="walk_in">Walk-in Kasir</option>
                       <option value="whatsapp">Pesanan WhatsApp</option>
@@ -830,6 +897,10 @@ export default function AdminBookings() {
                   <span className="font-medium text-gray-800">{rescheduleBooking.venue?.name || "Venue"}</span>
                 </div>
                 <div className="flex justify-between">
+                  <span className="text-gray-500">Lapangan Saat Ini:</span>
+                  <span className="font-semibold text-[#16A34A]">{rescheduleBooking.court?.name || "Lapangan 1 (Utama)"}</span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-gray-500">Jadwal Lama:</span>
                   <span className="font-semibold text-red-600">
                     {rescheduleBooking.date ? new Date(rescheduleBooking.date).toLocaleDateString("id-ID") : "-"} pukul {rescheduleBooking.startTime} ({rescheduleBooking.durationHours || 1} jam)
@@ -838,6 +909,22 @@ export default function AdminBookings() {
               </div>
 
               <form onSubmit={handleSubmitReschedule} className="mt-4 space-y-4">
+                {rescheduleCourts.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Pindahkan ke Lapangan</label>
+                    <select
+                      value={rescheduleCourtId}
+                      onChange={e => setRescheduleCourtId(e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 outline-none focus:border-[#16A34A]"
+                    >
+                      {rescheduleCourts.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({c.courtType || 'Vinyl'}) {c.pricePerHour ? `- ${formatPrice(c.pricePerHour)}/jam` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Tanggal Baru *</label>

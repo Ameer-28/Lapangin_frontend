@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { 
   ChevronLeft, MapPin, Heart, Clock, Star, 
-  Calendar as CalendarIcon, AlertTriangle, CheckCircle2, Shield
+  Calendar as CalendarIcon, AlertTriangle, CheckCircle2, Shield, Award
 } from "lucide-react";
 import { GreenButton } from "@/components/ui/GreenButton";
 import { Stars } from "@/components/ui/Stars";
@@ -24,8 +24,11 @@ function VenueDetailContent() {
   const todayStr = new Date().toISOString().split("T")[0];
   const paramDate = searchParams.get("date");
   const paramTime = searchParams.get("time");
+  const paramCourt = searchParams.get("courtId");
 
   const [venue, setVenue] = useState<any>(null);
+  const [courts, setCourts] = useState<any[]>([]);
+  const [selectedCourtId, setSelectedCourtId] = useState<string>(paramCourt || "");
   const [reviews, setReviews] = useState<any[]>([]);
   const [activeImg, setActiveImg] = useState(0);
   const [liked, setLiked] = useState(false);
@@ -50,15 +53,23 @@ function VenueDetailContent() {
   }, [id]);
 
   useEffect(() => {
-    if (id && selectedDate) {
-      fetchTimeSlots(selectedDate);
+    if (id && selectedDate && selectedCourtId) {
+      fetchTimeSlots(selectedDate, selectedCourtId);
     }
-  }, [id, selectedDate]);
+  }, [id, selectedDate, selectedCourtId]);
 
   const fetchVenue = async () => {
     try {
       const res = await api.get(`/venues/${id}`);
-      setVenue(res.data.data || res.data);
+      const v = res.data.data || res.data;
+      setVenue(v);
+      
+      const vCourts = v.courts || [];
+      setCourts(vCourts);
+      if (vCourts.length > 0 && !selectedCourtId) {
+        const active = vCourts.find((c: any) => c.isActive) || vCourts[0];
+        setSelectedCourtId(active.id);
+      }
     } catch (err) {
       console.error(err);
     }
@@ -74,11 +85,14 @@ function VenueDetailContent() {
     }
   };
 
-  const fetchTimeSlots = async (dateStr: string) => {
+  const fetchTimeSlots = async (dateStr: string, courtIdStr?: string) => {
     setLoadingSlots(true);
     try {
       const res = await api.get(`/venues/${id}/slots`, {
-        params: { date: dateStr }
+        params: { 
+          date: dateStr,
+          ...(courtIdStr ? { courtId: courtIdStr } : {})
+        }
       });
       const raw = res.data;
       const slotList = Array.isArray(raw) ? raw : (raw?.data || []);
@@ -132,6 +146,9 @@ function VenueDetailContent() {
   dayAfter.setDate(dayAfter.getDate() + 2);
   const dayAfterStr = dayAfter.toISOString().split("T")[0];
 
+  const currentCourt = courts.find(c => c.id === selectedCourtId) || courts[0];
+  const activeCourtPrice = currentCourt?.pricePerHour ?? (venue?.pricePerHour || venue?.price || 0);
+
   const handleBookNow = () => {
     const userStr = localStorage.getItem("user");
     if (userStr) {
@@ -149,14 +166,17 @@ function VenueDetailContent() {
       } catch (e) {}
     }
 
-    const params = new URLSearchParams();
-    params.set("venueId", venue.id);
-    params.set("date", selectedDate);
+    const q = new URLSearchParams();
+    q.set("venueId", venue.id);
+    if (selectedCourtId) {
+      q.set("courtId", selectedCourtId);
+    }
+    q.set("date", selectedDate);
     if (selSlot) {
-      params.set("time", selSlot);
+      q.set("time", selSlot);
     }
 
-    router.push(`/bookings/new?${params.toString()}`);
+    router.push(`/bookings/new?${q.toString()}`);
   };
 
   if (!venue) {
@@ -222,6 +242,55 @@ function VenueDetailContent() {
             <p className="text-gray-600 text-sm leading-relaxed">{venue.description || "Tidak ada deskripsi tersedia."}</p>
           </div>
 
+          {/* Courts Overview */}
+          {courts.length > 0 && (
+            <div className="bg-white rounded-2xl border border-gray-100 p-6">
+              <h2 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                <Award className="w-5 h-5 text-[#16A34A]" /> Pilihan Lapangan ({courts.length})
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {courts.map((court: any) => (
+                  <div
+                    key={court.id}
+                    onClick={() => {
+                      if (court.isActive) {
+                        setSelectedCourtId(court.id);
+                        setSelSlot(null);
+                      }
+                    }}
+                    className={cx(
+                      "p-3.5 rounded-xl border cursor-pointer transition-all flex items-start justify-between",
+                      selectedCourtId === court.id
+                        ? "border-[#16A34A] bg-green-50/50 ring-1 ring-[#16A34A]"
+                        : "border-gray-100 hover:border-gray-200 bg-gray-50/50"
+                    )}
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-gray-900 text-sm">{court.name}</h3>
+                        <span className={cx(
+                          "text-[10px] px-2 py-0.5 rounded-full font-semibold",
+                          court.courtType?.includes("Rumput") ? "bg-emerald-100 text-emerald-800" : "bg-blue-100 text-blue-800"
+                        )}>
+                          {court.courtType || "Vinyl"}
+                        </span>
+                      </div>
+                      {court.description && (
+                        <p className="text-xs text-gray-500 mt-1">{court.description}</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <span className="font-bold text-[#16A34A] text-sm">
+                        {formatPrice(court.pricePerHour ?? venue.pricePerHour)}
+                      </span>
+                      <span className="text-[11px] text-gray-400 block">/jam</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Facilities */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
             <h2 className="font-bold text-gray-900 mb-4">Fasilitas Tersedia</h2>
@@ -281,17 +350,75 @@ function VenueDetailContent() {
           </div>
         </div>
 
-        {/* Right Column: Interactive Date & Slot Booking Card */}
+        {/* Right Column: Interactive Court, Date & Slot Booking Card */}
         <div className="lg:col-span-1">
           <div className="sticky top-8 bg-white rounded-2xl border border-gray-100 shadow-xl p-6 space-y-5">
             {/* Price Header */}
             <div className="text-center pb-4 border-b border-gray-100">
               <p className="text-gray-400 text-xs font-medium uppercase tracking-wider">Tarif Sewa</p>
               <p className="text-3xl font-extrabold text-[#16A34A] mt-1">
-                {formatPrice(venue.pricePerHour || venue.price || 0)}
+                {formatPrice(activeCourtPrice)}
               </p>
               <p className="text-gray-400 text-xs mt-0.5">per jam bermain</p>
             </div>
+
+            {/* Court Selection */}
+            {courts.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-bold text-gray-800 uppercase tracking-wide flex items-center gap-1.5">
+                    <Award className="w-3.5 h-3.5 text-[#16A34A]" /> Pilih Lapangan
+                  </label>
+                  <span className="text-[11px] text-gray-500 font-medium">
+                    {courts.filter(c => c.isActive).length} aktif
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  {courts.map((court: any) => {
+                    const isSelected = selectedCourtId === court.id;
+                    const courtPrice = court.pricePerHour ?? venue.pricePerHour;
+                    return (
+                      <button
+                        key={court.id}
+                        type="button"
+                        disabled={!court.isActive}
+                        onClick={() => {
+                          setSelectedCourtId(court.id);
+                          setSelSlot(null);
+                        }}
+                        className={cx(
+                          "w-full p-2.5 rounded-xl border text-left transition-all flex items-center justify-between",
+                          !court.isActive
+                            ? "bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed"
+                            : isSelected
+                              ? "bg-green-50 border-[#16A34A] ring-1 ring-[#16A34A] shadow-sm"
+                              : "bg-gray-50/70 border-gray-200 hover:bg-gray-100"
+                        )}
+                      >
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className={cx("text-xs font-bold", isSelected ? "text-green-900" : "text-gray-900")}>
+                              {court.name}
+                            </span>
+                            <span className={cx(
+                              "text-[9px] px-1.5 py-0.5 rounded font-semibold",
+                              court.courtType?.includes("Rumput") ? "bg-emerald-100 text-emerald-800" : "bg-blue-100 text-blue-800"
+                            )}>
+                              {court.courtType || "Vinyl"}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="text-xs font-bold text-[#16A34A]">{formatPrice(courtPrice)}</span>
+                          <span className="text-[9px] text-gray-400 block">/jam</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Date Selection */}
             <div>
@@ -417,13 +544,19 @@ function VenueDetailContent() {
             {/* Booking Summary Box */}
             <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 text-xs space-y-1.5">
               <div className="flex justify-between text-gray-600">
-                <span>Tanggal Dipilih:</span>
+                <span>Lapangan:</span>
+                <span className="font-semibold text-gray-900">
+                  {currentCourt?.name || 'Lapangan 1 (Utama)'}
+                </span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Tanggal:</span>
                 <span className="font-semibold text-gray-900">
                   {new Date(selectedDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
                 </span>
               </div>
               <div className="flex justify-between text-gray-600">
-                <span>Jam Dipilih:</span>
+                <span>Jam:</span>
                 <span className={cx("font-bold", selSlot ? "text-[#16A34A]" : "text-amber-600")}>
                   {selSlot ? `${selSlot} WIB` : "Belum dipilih"}
                 </span>
