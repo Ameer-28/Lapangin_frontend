@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, ChevronLeft, ChevronRight, Eye, XCircle, Download, X, Plus, AlertTriangle } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Eye, XCircle, Download, X, Plus, AlertTriangle, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/data";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -19,6 +19,15 @@ export default function AdminBookings() {
   const [loading, setLoading] = useState(true);
   const [viewBooking, setViewBooking] = useState<any>(null);
   const [receiptBooking, setReceiptBooking] = useState<any>(null);
+
+  // Reschedule states
+  const [rescheduleBooking, setRescheduleBooking] = useState<any>(null);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleStartTime, setRescheduleStartTime] = useState("19:00");
+  const [rescheduleReason, setRescheduleReason] = useState("");
+  const [rescheduleSlots, setRescheduleSlots] = useState<any[]>([]);
+  const [loadingRescheduleSlots, setLoadingRescheduleSlots] = useState(false);
+  const [submittingReschedule, setSubmittingReschedule] = useState(false);
 
   // Offline booking modal states
   const [showOfflineModal, setShowOfflineModal] = useState(false);
@@ -64,6 +73,59 @@ export default function AdminBookings() {
       setDaySlots([]);
     } finally {
       setLoadingSlots(false);
+    }
+  };
+
+  useEffect(() => {
+    if (rescheduleBooking && rescheduleDate) {
+      setLoadingRescheduleSlots(true);
+      const vId = rescheduleBooking.venueId || rescheduleBooking.venue?.id;
+      api.get(`/venues/${vId}/slots?date=${rescheduleDate}`)
+        .then(res => {
+          setRescheduleSlots(Array.isArray(res.data) ? res.data : (res.data?.data || []));
+        })
+        .catch(() => setRescheduleSlots([]))
+        .finally(() => setLoadingRescheduleSlots(false));
+    }
+  }, [rescheduleBooking, rescheduleDate]);
+
+  const handleOpenReschedule = (b: any) => {
+    setRescheduleBooking(b);
+    const curDate = b.date ? new Date(b.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0];
+    setRescheduleDate(curDate);
+    setRescheduleStartTime(b.startTime || "19:00");
+    setRescheduleReason("");
+  };
+
+  const handleSubmitReschedule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rescheduleBooking || !rescheduleDate || !rescheduleStartTime) return;
+
+    setSubmittingReschedule(true);
+    try {
+      await api.patch(`/admin/bookings/${rescheduleBooking.id}/reschedule`, {
+        newDate: rescheduleDate,
+        newStartTime: rescheduleStartTime,
+        reason: rescheduleReason.trim() || undefined,
+      });
+
+      setRescheduleBooking(null);
+      fetchData();
+      setPopup({
+        isOpen: true,
+        type: "success",
+        title: "Reschedule Berhasil",
+        message: `Booking berhasil dipindahkan ke tanggal ${rescheduleDate} pukul ${rescheduleStartTime}. Pelanggan telah dinotifikasi.`,
+      });
+    } catch (err: any) {
+      setPopup({
+        isOpen: true,
+        type: "error",
+        title: "Gagal Reschedule",
+        message: err.response?.data?.message || "Gagal menjadwalkan ulang booking.",
+      });
+    } finally {
+      setSubmittingReschedule(false);
     }
   };
 
@@ -313,6 +375,11 @@ export default function AdminBookings() {
                         <button onClick={() => handleView(b.id)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="Lihat Detail">
                           <Eye className="w-3.5 h-3.5" />
                         </button>
+                        {(b.status === "upcoming" || b.status === "confirmed" || b.status === "pending_payment") && (
+                          <button onClick={() => handleOpenReschedule(b)} className="p-1 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors" title="Reschedule / Pindah Jadwal">
+                            <Calendar className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         {(b.status === "upcoming" || b.status === "confirmed" || b.status === "pending_payment") && (
                           <button onClick={() => handleCancel(b.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Batalkan">
                             <XCircle className="w-3.5 h-3.5" />
@@ -707,6 +774,185 @@ export default function AdminBookings() {
                             : hasConflict
                               ? "Jadwal Bentrok"
                               : "Simpan Booking Offline"}
+                        </button>
+                      </div>
+                    </>
+                  );
+                })()}
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Reschedule Modal */}
+      <AnimatePresence>
+        {rescheduleBooking && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setRescheduleBooking(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden p-6 z-10 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex justify-between items-center pb-4 border-b border-gray-100">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Reschedule / Pindah Jadwal</h3>
+                  <p className="text-xs text-gray-500">Pindahkan booking ke tanggal atau jam lain</p>
+                </div>
+                <button
+                  onClick={() => setRescheduleBooking(null)}
+                  className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Current booking info summary */}
+              <div className="mt-4 p-3.5 bg-gray-50 rounded-xl border border-gray-100 text-xs space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Kode Booking:</span>
+                  <span className="font-bold text-gray-800">{rescheduleBooking.bookingCode || `BK-${rescheduleBooking.id}`}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Customer:</span>
+                  <span className="font-medium text-gray-800">{rescheduleBooking.customerName || rescheduleBooking.user?.fullName || "Customer"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Venue:</span>
+                  <span className="font-medium text-gray-800">{rescheduleBooking.venue?.name || "Venue"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Jadwal Lama:</span>
+                  <span className="font-semibold text-red-600">
+                    {rescheduleBooking.date ? new Date(rescheduleBooking.date).toLocaleDateString("id-ID") : "-"} pukul {rescheduleBooking.startTime} ({rescheduleBooking.durationHours || 1} jam)
+                  </span>
+                </div>
+              </div>
+
+              <form onSubmit={handleSubmitReschedule} className="mt-4 space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Tanggal Baru *</label>
+                    <input
+                      type="date"
+                      value={rescheduleDate}
+                      onChange={e => setRescheduleDate(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 outline-none focus:border-[#16A34A]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Jam Mulai Baru *</label>
+                    <select
+                      value={rescheduleStartTime}
+                      onChange={e => setRescheduleStartTime(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 outline-none focus:border-[#16A34A]"
+                    >
+                      {Array.from({ length: 17 }, (_, i) => {
+                        const h = (i + 7).toString().padStart(2, "0");
+                        return <option key={h} value={`${h}:00`}>{h}:00</option>;
+                      })}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Target slot availability preview */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold text-gray-700 uppercase">Ketersediaan Slot ({rescheduleDate})</label>
+                    {loadingRescheduleSlots && <span className="text-[11px] text-gray-400">Memeriksa slot...</span>}
+                  </div>
+                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-1 max-h-32 overflow-y-auto p-2 bg-gray-50 rounded-xl border border-gray-200">
+                    {rescheduleSlots.length === 0 ? (
+                      <div className="col-span-full py-2 text-center text-xs text-gray-400">Pilih tanggal untuk memeriksa slot</div>
+                    ) : (
+                      rescheduleSlots.map(slot => {
+                        const isSelected = rescheduleStartTime === slot.startTime;
+                        const isCurrentBookingSlot = slot.bookingId === rescheduleBooking.id;
+                        const isOccupied = slot.isBooked && !isCurrentBookingSlot;
+                        return (
+                          <button
+                            key={slot.id || slot.startTime}
+                            type="button"
+                            disabled={isOccupied}
+                            onClick={() => setRescheduleStartTime(slot.startTime)}
+                            className={cn(
+                              "py-1 px-1.5 rounded-lg text-[11px] font-medium border text-center transition-all",
+                              isOccupied
+                                ? "bg-red-50 text-red-500 border-red-200 cursor-not-allowed line-through"
+                                : isSelected
+                                  ? "bg-[#16A34A] text-white border-[#16A34A] shadow-sm font-bold"
+                                  : "bg-white text-gray-700 border-gray-200 hover:border-green-400 hover:bg-green-50"
+                            )}
+                          >
+                            {slot.startTime}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Alasan Reschedule (Opsional)</label>
+                  <input
+                    type="text"
+                    value={rescheduleReason}
+                    onChange={e => setRescheduleReason(e.target.value)}
+                    placeholder="misal: Permintaan customer, renovasi darurat"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 outline-none focus:border-[#16A34A]"
+                  />
+                </div>
+
+                {(() => {
+                  const startH = parseInt(rescheduleStartTime.split(":")[0], 10);
+                  const duration = rescheduleBooking.durationHours || 1;
+                  const conflictSlots: string[] = [];
+                  for (let i = 0; i < duration; i++) {
+                    const t = `${(startH + i).toString().padStart(2, "0")}:00`;
+                    const match = rescheduleSlots.find(s => s.startTime === t);
+                    if (match && match.isBooked && match.bookingId !== rescheduleBooking.id) {
+                      conflictSlots.push(t);
+                    }
+                  }
+                  const hasConflict = conflictSlots.length > 0;
+                  return (
+                    <>
+                      {hasConflict && (
+                        <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 shrink-0 text-red-500" />
+                          <span>
+                            <strong>Peringatan Bentrok:</strong> Jam {conflictSlots.join(", ")} sudah terisi. Silakan pilih waktu lain.
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex gap-3 pt-4 border-t border-gray-100">
+                        <button
+                          type="button"
+                          onClick={() => setRescheduleBooking(null)}
+                          className="flex-1 py-2.5 px-4 border border-gray-200 text-gray-700 font-semibold rounded-xl text-xs hover:bg-gray-50 transition-colors"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={submittingReschedule || hasConflict}
+                          className="flex-1 py-2.5 px-4 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl text-xs shadow-md shadow-amber-600/20 transition-colors"
+                        >
+                          {submittingReschedule
+                            ? "Memindahkan..."
+                            : hasConflict
+                              ? "Jadwal Bentrok"
+                              : "Konfirmasi Reschedule"}
                         </button>
                       </div>
                     </>

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { LayoutDashboard, Building2, BookOpen, Users, BarChart2, Sliders, LogOut, Globe, Menu, Search, Bell, Check } from "lucide-react";
+import { LayoutDashboard, Building2, BookOpen, Users, BarChart2, Sliders, LogOut, Globe, Menu, Search, Bell, Check, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import api from "@/lib/api";
 
@@ -89,7 +89,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (n.type === "booking" || n.type === "payment") {
       router.push("/admin/bookings");
     } else if (n.type === "review") {
-      router.push("/admin/venues");
+      router.push("/admin/reviews");
     } else {
       router.push("/admin");
     }
@@ -119,6 +119,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { id: "/admin", label: "Overview", Icon: LayoutDashboard },
     { id: "/admin/venues", label: "Venues", Icon: Building2 },
     { id: "/admin/bookings", label: "Bookings", Icon: BookOpen },
+    { id: "/admin/reviews", label: "Reviews", Icon: Star },
     { id: "/admin/users", label: "Users", Icon: Users },
     { id: "/admin/reports", label: "Reports", Icon: BarChart2 },
     { id: "/admin/settings", label: "Settings", Icon: Sliders },
@@ -128,6 +129,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     "/admin": "Overview",
     "/admin/venues": "Venue Management",
     "/admin/bookings": "Booking Management",
+    "/admin/reviews": "Review Moderation",
     "/admin/users": "User Management",
     "/admin/reports": "Reports & Analytics",
     "/admin/settings": "System Settings",

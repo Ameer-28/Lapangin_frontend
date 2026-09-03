@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, Plus, PenLine, Trash2, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Plus, PenLine, Trash2, X, ChevronLeft, ChevronRight, CalendarOff, AlertTriangle, Calendar } from "lucide-react";
 import api from "@/lib/api";
 import { formatPrice } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -22,6 +22,17 @@ export default function AdminVenues() {
     message: string;
     onConfirm?: () => void;
   }>({ isOpen: false, message: "" });
+
+  // Closure modal states
+  const [closureVenue, setClosureVenue] = useState<any | null>(null);
+  const [closuresList, setClosuresList] = useState<any[]>([]);
+  const [loadingClosures, setLoadingClosures] = useState(false);
+  const [closureDate, setClosureDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [closureFullDay, setClosureFullDay] = useState(true);
+  const [closureStartTime, setClosureStartTime] = useState("08:00");
+  const [closureEndTime, setClosureEndTime] = useState("17:00");
+  const [closureReason, setClosureReason] = useState("");
+  const [submittingClosure, setSubmittingClosure] = useState(false);
 
   useEffect(() => {
     fetchVenues();
@@ -64,6 +75,75 @@ export default function AdminVenues() {
     (v.name || '').toLowerCase().includes(search.toLowerCase()) ||
     (v.city || '').toLowerCase().includes(search.toLowerCase())
   );
+
+  const handleOpenClosures = async (venue: any) => {
+    setClosureVenue(venue);
+    setLoadingClosures(true);
+    setClosureReason("");
+    setClosureFullDay(true);
+    try {
+      const res = await api.get(`/admin/venues/${venue.id}/closures`);
+      setClosuresList(res.data || []);
+    } catch (_) {
+      setClosuresList([]);
+    } finally {
+      setLoadingClosures(false);
+    }
+  };
+
+  const handleAddClosure = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!closureVenue || !closureDate || !closureReason.trim()) return;
+
+    setSubmittingClosure(true);
+    try {
+      await api.post(`/admin/venues/${closureVenue.id}/closures`, {
+        date: closureDate,
+        startTime: closureFullDay ? undefined : closureStartTime,
+        endTime: closureFullDay ? undefined : closureEndTime,
+        reason: closureReason.trim(),
+      });
+
+      const res = await api.get(`/admin/venues/${closureVenue.id}/closures`);
+      setClosuresList(res.data || []);
+      setClosureReason("");
+      setPopup({
+        isOpen: true,
+        type: "success",
+        title: "Penutupan Ditambahkan",
+        message: `Penutupan operasional untuk tanggal ${closureDate} berhasil disimpan. Customer tidak akan dapat membooking slot tersebut.`,
+      });
+    } catch (err: any) {
+      setPopup({
+        isOpen: true,
+        type: "error",
+        title: "Gagal Menambahkan",
+        message: err.response?.data?.message || "Gagal menambahkan penutupan venue.",
+      });
+    } finally {
+      setSubmittingClosure(false);
+    }
+  };
+
+  const handleDeleteClosure = async (closureId: string) => {
+    try {
+      await api.delete(`/admin/venues/closures/${closureId}`);
+      setClosuresList(prev => prev.filter(c => c.id !== closureId));
+      setPopup({
+        isOpen: true,
+        type: "success",
+        title: "Penutupan Dihapus",
+        message: "Jadwal penutupan operasional berhasil dihapus.",
+      });
+    } catch (err: any) {
+      setPopup({
+        isOpen: true,
+        type: "error",
+        title: "Gagal Menghapus",
+        message: err.response?.data?.message || "Gagal menghapus penutupan venue.",
+      });
+    }
+  };
 
   const toggleActive = async (id: any, currentStatus: boolean) => {
     try {
@@ -458,6 +538,9 @@ export default function AdminVenues() {
                       <button onClick={() => setEditId(v.id)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors" title="Edit">
                         <PenLine className="w-3.5 h-3.5" />
                       </button>
+                      <button onClick={() => handleOpenClosures(v)} className="p-1 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors" title="Penutupan / Libur Operasional">
+                        <CalendarOff className="w-3.5 h-3.5" />
+                      </button>
                       <button onClick={() => deleteVenue(v.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Delete">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -477,6 +560,139 @@ export default function AdminVenues() {
           </div>
         </div>
       </div>
+
+      {/* Venue Closures & Maintenance Modal */}
+      {closureVenue && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 overflow-y-auto py-10">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setClosureVenue(null)} />
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+            className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg z-10 max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Penutupan / Libur Operasional</h2>
+                <p className="text-xs text-gray-500 font-medium">{closureVenue.name} ({closureVenue.city})</p>
+              </div>
+              <button onClick={() => setClosureVenue(null)} className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Add New Closure Form */}
+            <form onSubmit={handleAddClosure} className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-3">
+              <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Jadwalkan Penutupan Baru</h3>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Tanggal *</label>
+                <input
+                  type="date"
+                  value={closureDate}
+                  onChange={e => setClosureDate(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 outline-none focus:border-[#16A34A]"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={closureFullDay}
+                    onChange={e => setClosureFullDay(e.target.checked)}
+                    className="w-4 h-4 text-[#16A34A] rounded border-gray-300 focus:ring-green-500"
+                  />
+                  <span>Tutup Seharian Penuh (Full Day)</span>
+                </label>
+
+                {!closureFullDay && (
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-500 mb-0.5">Dari Jam</label>
+                      <select
+                        value={closureStartTime}
+                        onChange={e => setClosureStartTime(e.target.value)}
+                        className="w-full px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-xs"
+                      >
+                        {Array.from({ length: 17 }, (_, i) => {
+                          const h = (i + 7).toString().padStart(2, "0");
+                          return <option key={h} value={`${h}:00`}>{h}:00</option>;
+                        })}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-500 mb-0.5">Sampai Jam</label>
+                      <select
+                        value={closureEndTime}
+                        onChange={e => setClosureEndTime(e.target.value)}
+                        className="w-full px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-xs"
+                      >
+                        {Array.from({ length: 17 }, (_, i) => {
+                          const h = (i + 7).toString().padStart(2, "0");
+                          return <option key={h} value={`${h}:00`}>{h}:00</option>;
+                        })}
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Alasan Penutupan *</label>
+                <input
+                  type="text"
+                  value={closureReason}
+                  onChange={e => setClosureReason(e.target.value)}
+                  placeholder="misal: Perawatan Rumput Sintetis / Libur Nasional"
+                  required
+                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 outline-none focus:border-[#16A34A]"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submittingClosure}
+                className="w-full py-2 bg-[#16A34A] hover:bg-[#15803d] disabled:opacity-50 text-white font-bold rounded-xl text-xs transition-colors shadow-sm"
+              >
+                {submittingClosure ? "Menyimpan..." : "+ Tambah Jadwal Penutupan"}
+              </button>
+            </form>
+
+            {/* List of Closures */}
+            <div className="mt-5 space-y-2">
+              <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Daftar Penutupan Terjadwal</h3>
+              {loadingClosures ? (
+                <p className="text-xs text-gray-400 py-3 text-center">Memuat daftar penutupan...</p>
+              ) : closuresList.length === 0 ? (
+                <p className="text-xs text-gray-400 py-4 text-center bg-gray-50 rounded-xl">Belum ada jadwal penutupan khusus untuk venue ini.</p>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {closuresList.map(c => {
+                    const timeText = !c.startTime && !c.endTime ? "Tutup Seharian" : `${c.startTime} - ${c.endTime}`;
+                    return (
+                      <div key={c.id} className="flex items-center justify-between p-3 bg-red-50/50 border border-red-100 rounded-xl text-xs">
+                        <div>
+                          <p className="font-bold text-gray-900">
+                            {new Date(c.date).toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                          </p>
+                          <p className="text-red-600 font-semibold">{timeText} • {c.reason}</p>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteClosure(c.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Hapus Penutupan"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       <PopupModal
         isOpen={popup.isOpen}
         type={popup.type}
