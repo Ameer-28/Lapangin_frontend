@@ -356,10 +356,23 @@ function VenueDetailContent() {
             {/* Price Header */}
             <div className="text-center pb-4 border-b border-gray-100">
               <p className="text-gray-400 text-xs font-medium uppercase tracking-wider">Tarif Sewa</p>
-              <p className="text-3xl font-extrabold text-[#16A34A] mt-1">
-                {formatPrice(activeCourtPrice)}
-              </p>
-              <p className="text-gray-400 text-xs mt-0.5">per jam bermain</p>
+              {(() => {
+                const availablePrices = slots.filter((s: any) => !s.isBooked && s.price).map((s: any) => s.price);
+                const minP = availablePrices.length > 0 ? Math.min(...availablePrices) : activeCourtPrice;
+                const maxP = availablePrices.length > 0 ? Math.max(...availablePrices) : activeCourtPrice;
+                const hasRange = minP !== maxP;
+
+                return (
+                  <div>
+                    <p className="text-2xl sm:text-3xl font-extrabold text-[#16A34A] mt-1">
+                      {hasRange ? `${formatPrice(minP)} - ${formatPrice(maxP)}` : formatPrice(activeCourtPrice)}
+                    </p>
+                    <p className="text-gray-400 text-xs mt-0.5">
+                      per jam bermain {hasRange ? '(tarif dinamis/peak)' : ''}
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Court Selection */}
@@ -507,9 +520,9 @@ function VenueDetailContent() {
                         type="button"
                         disabled={isUnavailable}
                         onClick={() => setSelSlot(s.startTime)}
-                        title={s.isClosed ? `Tutup: ${s.closureReason || 'Operasional'}` : isUnavailable ? 'Sudah dibooking' : 'Tersedia'}
+                        title={s.isClosed ? `Tutup: ${s.closureReason || 'Operasional'}` : isUnavailable ? 'Sudah dibooking' : `${s.pricingRule ? s.pricingRule + ': ' : ''}${formatPrice(s.price || activeCourtPrice)}`}
                         className={cx(
-                          "py-2 px-2 rounded-xl text-xs font-semibold border transition-all text-center",
+                          "py-2 px-1.5 rounded-xl text-xs font-semibold border transition-all text-center flex flex-col items-center justify-center",
                           isUnavailable
                             ? "bg-red-50 text-red-400 border-red-100 cursor-not-allowed line-through opacity-70"
                             : isSelected
@@ -517,7 +530,16 @@ function VenueDetailContent() {
                               : "bg-white text-gray-700 border-gray-200 hover:border-green-400 hover:bg-green-50/50"
                         )}
                       >
-                        {s.startTime}
+                        <span>{s.startTime}</span>
+                        {!isUnavailable && s.price && (
+                          <span className={cx(
+                            "text-[9px] font-bold mt-0.5",
+                            isSelected ? "text-green-100" : s.pricingRule ? "text-purple-600" : "text-gray-400"
+                          )}>
+                            {Math.round(s.price / 1000)}k
+                            {s.pricingRule && <span className="ml-0.5 font-normal">★</span>}
+                          </span>
+                        )}
                       </button>
                     );
                   })
@@ -535,8 +557,12 @@ function VenueDetailContent() {
                   <span>Dipilih</span>
                 </div>
                 <div className="flex items-center gap-1">
+                  <span className="text-purple-600 font-bold text-[9px]">★</span>
+                  <span>Tarif Khusus</span>
+                </div>
+                <div className="flex items-center gap-1">
                   <div className="w-2.5 h-2.5 rounded bg-red-100 border border-red-200" />
-                  <span>Penuh / Tutup</span>
+                  <span>Penuh</span>
                 </div>
               </div>
             </div>
@@ -561,6 +587,23 @@ function VenueDetailContent() {
                   {selSlot ? `${selSlot} WIB` : "Belum dipilih"}
                 </span>
               </div>
+              {selSlot && (() => {
+                const slotObj = slots.find((s: any) => s.startTime === selSlot);
+                const slotPrice = slotObj?.price ?? activeCourtPrice;
+                return (
+                  <div className="flex justify-between text-gray-600 border-t border-gray-200/50 pt-1.5">
+                    <span>Estimasi Tarif:</span>
+                    <span className="font-bold text-[#16A34A]">
+                      {formatPrice(slotPrice)}
+                      {slotObj?.pricingRule && (
+                        <span className="ml-1 text-[10px] text-purple-700 font-semibold bg-purple-50 px-1 py-0.5 rounded border border-purple-200">
+                          {slotObj.pricingRule}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Action Button */}

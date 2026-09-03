@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, Plus, PenLine, Trash2, X, ChevronLeft, ChevronRight, CalendarOff, AlertTriangle, Calendar, Layers } from "lucide-react";
+import { Search, Plus, PenLine, Trash2, X, ChevronLeft, ChevronRight, CalendarOff, AlertTriangle, Calendar, Layers, Tag, TrendingUp } from "lucide-react";
 import api from "@/lib/api";
 import { formatPrice } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -45,6 +45,153 @@ export default function AdminVenues() {
   const [courtPrice, setCourtPrice] = useState<string>("");
   const [courtDescription, setCourtDescription] = useState("");
   const [submittingCourt, setSubmittingCourt] = useState(false);
+
+  // Pricing rules modal states
+  const [pricingVenue, setPricingVenue] = useState<any | null>(null);
+  const [pricingRulesList, setPricingRulesList] = useState<any[]>([]);
+  const [pricingCourts, setPricingCourts] = useState<any[]>([]);
+  const [loadingPricingRules, setLoadingPricingRules] = useState(false);
+  const [showAddPricingRule, setShowAddPricingRule] = useState(false);
+  const [editingPricingRule, setEditingPricingRule] = useState<any | null>(null);
+  const [ruleName, setRuleName] = useState("");
+  const [ruleCourtId, setRuleCourtId] = useState("");
+  const [ruleDayOfWeek, setRuleDayOfWeek] = useState<number[]>([]);
+  const [ruleStartTime, setRuleStartTime] = useState("18:00");
+  const [ruleEndTime, setRuleEndTime] = useState("22:00");
+  const [rulePrice, setRulePrice] = useState("");
+  const [rulePriority, setRulePriority] = useState(0);
+  const [submittingPricingRule, setSubmittingPricingRule] = useState(false);
+
+  const handleOpenPricing = async (venue: any) => {
+    setPricingVenue(venue);
+    setLoadingPricingRules(true);
+    setShowAddPricingRule(false);
+    setEditingPricingRule(null);
+    try {
+      const [rulesRes, courtsRes] = await Promise.all([
+        api.get(`/admin/venues/${venue.id}/pricing-rules`),
+        api.get(`/admin/venues/${venue.id}/courts`),
+      ]);
+      setPricingRulesList(rulesRes.data || []);
+      setPricingCourts(courtsRes.data || []);
+    } catch (_) {
+      setPricingRulesList([]);
+      setPricingCourts([]);
+    } finally {
+      setLoadingPricingRules(false);
+    }
+  };
+
+  const handleStartAddPricingRule = () => {
+    setEditingPricingRule(null);
+    setRuleName("");
+    setRuleCourtId("");
+    setRuleDayOfWeek([]);
+    setRuleStartTime("18:00");
+    setRuleEndTime("22:00");
+    setRulePrice("");
+    setRulePriority(0);
+    setShowAddPricingRule(true);
+  };
+
+  const handleEditPricingRule = (rule: any) => {
+    setEditingPricingRule(rule);
+    setRuleName(rule.name);
+    setRuleCourtId(rule.courtId || "");
+    setRuleDayOfWeek(rule.dayOfWeek || []);
+    setRuleStartTime(rule.startTime);
+    setRuleEndTime(rule.endTime);
+    setRulePrice(rule.pricePerHour.toString());
+    setRulePriority(rule.priority || 0);
+    setShowAddPricingRule(true);
+  };
+
+  const handleSubmitPricingRule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pricingVenue || !ruleName.trim() || !rulePrice) return;
+
+    setSubmittingPricingRule(true);
+    try {
+      const payload = {
+        name: ruleName.trim(),
+        courtId: ruleCourtId || null,
+        dayOfWeek: ruleDayOfWeek,
+        startTime: ruleStartTime,
+        endTime: ruleEndTime,
+        pricePerHour: parseInt(rulePrice, 10),
+        priority: Number(rulePriority) || 0,
+      };
+
+      if (editingPricingRule) {
+        await api.patch(`/admin/pricing-rules/${editingPricingRule.id}`, payload);
+      } else {
+        await api.post(`/admin/venues/${pricingVenue.id}/pricing-rules`, payload);
+      }
+
+      const res = await api.get(`/admin/venues/${pricingVenue.id}/pricing-rules`);
+      setPricingRulesList(res.data || []);
+      setShowAddPricingRule(false);
+      setEditingPricingRule(null);
+      setPopup({
+        isOpen: true,
+        type: "success",
+        title: "Aturan Harga Disimpan",
+        message: "Aturan harga berhasil disimpan dan langsung diterapkan ke jadwal booking.",
+      });
+    } catch (err: any) {
+      setPopup({
+        isOpen: true,
+        type: "error",
+        title: "Gagal Menyimpan Aturan Harga",
+        message: err.response?.data?.message || "Terjadi kesalahan saat menyimpan aturan harga.",
+      });
+    } finally {
+      setSubmittingPricingRule(false);
+    }
+  };
+
+  const handleTogglePricingRule = async (rule: any) => {
+    try {
+      await api.patch(`/admin/pricing-rules/${rule.id}/toggle-status`);
+      if (pricingVenue) {
+        const res = await api.get(`/admin/venues/${pricingVenue.id}/pricing-rules`);
+        setPricingRulesList(res.data || []);
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || "Gagal mengubah status aturan harga");
+    }
+  };
+
+  const handleDeletePricingRule = (rule: any) => {
+    setPopup({
+      isOpen: true,
+      type: "confirm",
+      title: "Hapus Aturan Harga?",
+      message: `Apakah Anda yakin ingin menghapus aturan "${rule.name}"? Tarif slot waktu akan kembali mengikuti aturan standar.`,
+      onConfirm: async () => {
+        try {
+          await api.delete(`/admin/pricing-rules/${rule.id}`);
+          if (pricingVenue) {
+            const res = await api.get(`/admin/venues/${pricingVenue.id}/pricing-rules`);
+            setPricingRulesList(res.data || []);
+          }
+          setPopup({
+            isOpen: true,
+            type: "success",
+            title: "Aturan Dihapus",
+            message: `Aturan harga "${rule.name}" berhasil dihapus.`,
+          });
+        } catch (err: any) {
+          setPopup({
+            isOpen: true,
+            type: "error",
+            title: "Gagal Menghapus Aturan",
+            message: err.response?.data?.message || "Tidak dapat menghapus aturan harga.",
+          });
+        }
+      },
+    });
+  };
 
   const handleOpenCourts = async (venue: any) => {
     setCourtsVenue(venue);
@@ -680,6 +827,9 @@ export default function AdminVenues() {
                       <button onClick={() => handleOpenCourts(v)} className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors" title="Kelola Lapangan / Courts">
                         <Layers className="w-3.5 h-3.5" />
                       </button>
+                      <button onClick={() => handleOpenPricing(v)} className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-md transition-colors" title="Atur Tarif & Aturan Harga (Pricing Rules)">
+                        <Tag className="w-3.5 h-3.5" />
+                      </button>
                       <button onClick={() => handleOpenClosures(v)} className="p-1 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors" title="Penutupan / Libur Operasional">
                         <CalendarOff className="w-3.5 h-3.5" />
                       </button>
@@ -1031,6 +1181,351 @@ export default function AdminVenues() {
                             onClick={() => handleDeleteCourt(court)}
                             className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             title="Hapus Lapangan"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Pricing Rules Management Modal */}
+      {pricingVenue && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl"
+          >
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-gray-900 text-base flex items-center gap-2">
+                  <Tag className="w-5 h-5 text-purple-600" /> Atur Tarif & Aturan Harga (Pricing Rules)
+                </h3>
+                <p className="text-xs text-gray-500">
+                  {pricingVenue.name} · Tarif Dasar: <strong className="text-[#16A34A]">{formatPrice(pricingVenue.pricePerHour)}/jam</strong>
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setPricingVenue(null);
+                  setShowAddPricingRule(false);
+                }}
+                className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-5">
+              {/* Action bar */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Daftar Aturan ({pricingRulesList.length})
+                </span>
+                {!showAddPricingRule && (
+                  <button
+                    onClick={handleStartAddPricingRule}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold shadow-sm shadow-purple-600/20 transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Tambah Aturan Harga
+                  </button>
+                )}
+              </div>
+
+              {/* Add / Edit Form */}
+              {showAddPricingRule && (
+                <form
+                  onSubmit={handleSubmitPricingRule}
+                  className="p-4 bg-purple-50/50 rounded-xl border border-purple-100 space-y-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-purple-900 uppercase">
+                      {editingPricingRule ? "Edit Aturan Harga" : "Aturan Harga Baru"}
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddPricingRule(false)}
+                      className="text-xs text-gray-400 hover:text-gray-600"
+                    >
+                      Batal
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                        Nama Aturan *
+                      </label>
+                      <input
+                        type="text"
+                        value={ruleName}
+                        onChange={e => setRuleName(e.target.value)}
+                        required
+                        placeholder="misal: Peak Malam, Weekend Rate"
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 outline-none focus:border-purple-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                        Cakupan Lapangan
+                      </label>
+                      <select
+                        value={ruleCourtId}
+                        onChange={e => setRuleCourtId(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 outline-none focus:border-purple-600"
+                      >
+                        <option value="">Semua Lapangan (Venue-wide)</option>
+                        {pricingCourts.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} ({c.courtType || 'Vinyl'})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Day of week multi-select */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-gray-700 uppercase">
+                        Hari Berlaku ({ruleDayOfWeek.length === 0 ? "Setiap Hari" : `${ruleDayOfWeek.length} Hari Terpilih`})
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setRuleDayOfWeek([1, 2, 3, 4, 5])}
+                          className="text-[10px] text-purple-600 hover:underline"
+                        >
+                          Weekday
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRuleDayOfWeek([0, 6])}
+                          className="text-[10px] text-purple-600 hover:underline"
+                        >
+                          Weekend
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRuleDayOfWeek([])}
+                          className="text-[10px] text-gray-500 hover:underline"
+                        >
+                          Semua Hari
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { day: 1, label: "Senin" },
+                        { day: 2, label: "Selasa" },
+                        { day: 3, label: "Rabu" },
+                        { day: 4, label: "Kamis" },
+                        { day: 5, label: "Jumat" },
+                        { day: 6, label: "Sabtu" },
+                        { day: 0, label: "Minggu" },
+                      ].map(d => {
+                        const isSelected = ruleDayOfWeek.includes(d.day);
+                        return (
+                          <button
+                            key={d.day}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                setRuleDayOfWeek(ruleDayOfWeek.filter(x => x !== d.day));
+                              } else {
+                                setRuleDayOfWeek([...ruleDayOfWeek, d.day]);
+                              }
+                            }}
+                            className={cn(
+                              "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all",
+                              isSelected
+                                ? "bg-purple-600 text-white shadow-sm"
+                                : "bg-white border border-gray-200 text-gray-600 hover:border-purple-300"
+                            )}
+                          >
+                            {d.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      Kosongkan pilihan hari jika aturan berlaku untuk semua hari (Senin s/d Minggu).
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                        Jam Mulai *
+                      </label>
+                      <select
+                        value={ruleStartTime}
+                        onChange={e => setRuleStartTime(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 outline-none focus:border-purple-600"
+                      >
+                        {Array.from({ length: 17 }, (_, i) => {
+                          const h = (i + 7).toString().padStart(2, "0");
+                          return <option key={h} value={`${h}:00`}>{h}:00</option>;
+                        })}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                        Jam Selesai *
+                      </label>
+                      <select
+                        value={ruleEndTime}
+                        onChange={e => setRuleEndTime(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 outline-none focus:border-purple-600"
+                      >
+                        {Array.from({ length: 17 }, (_, i) => {
+                          const h = (i + 8).toString().padStart(2, "0");
+                          return <option key={h} value={`${h}:00`}>{h}:00</option>;
+                        })}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                        Tarif / Jam (Rp) *
+                      </label>
+                      <input
+                        type="number"
+                        value={rulePrice}
+                        onChange={e => setRulePrice(e.target.value)}
+                        required
+                        placeholder="contoh: 180000"
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 outline-none focus:border-purple-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                        Prioritas (0-100)
+                      </label>
+                      <input
+                        type="number"
+                        value={rulePriority}
+                        onChange={e => setRulePriority(Number(e.target.value))}
+                        placeholder="0"
+                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 outline-none focus:border-purple-600"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2 border-t border-purple-100">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddPricingRule(false)}
+                      className="px-3 py-1.5 rounded-xl border border-gray-200 text-gray-600 text-xs hover:bg-gray-50"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submittingPricingRule}
+                      className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-sm"
+                    >
+                      {submittingPricingRule ? "Menyimpan..." : "Simpan Aturan"}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Rules List */}
+              {loadingPricingRules ? (
+                <div className="py-12 text-center text-xs text-gray-400">Memuat aturan harga...</div>
+              ) : pricingRulesList.length === 0 ? (
+                <div className="py-10 text-center text-xs text-gray-400 bg-gray-50 rounded-2xl border border-dashed border-gray-200 p-6">
+                  <Tag className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                  <p className="font-semibold text-gray-600">Belum Ada Aturan Harga Khusus</p>
+                  <p className="text-gray-400 mt-0.5">
+                    Semua jam dan hari saat ini menggunakan tarif dasar venue ({formatPrice(pricingVenue.pricePerHour)}/jam).
+                  </p>
+                  <button
+                    onClick={handleStartAddPricingRule}
+                    className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white rounded-xl text-xs font-semibold shadow-sm"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Buat Aturan Pertama
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {pricingRulesList.map(rule => {
+                    const dayNames = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+                    const dayLabel = !rule.dayOfWeek || rule.dayOfWeek.length === 0
+                      ? "Setiap Hari"
+                      : rule.dayOfWeek.map((d: number) => dayNames[d]).join(", ");
+
+                    return (
+                      <div
+                        key={rule.id}
+                        className={cn(
+                          "p-3.5 rounded-xl border transition-all flex items-center justify-between gap-4",
+                          rule.isActive
+                            ? "bg-white border-gray-200 shadow-sm"
+                            : "bg-gray-50 border-gray-200 opacity-60"
+                        )}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-gray-900 text-sm">{rule.name}</span>
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                              {rule.court?.name || "Semua Lapangan"}
+                            </span>
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                              {dayLabel}
+                            </span>
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                              {rule.startTime} - {rule.endTime}
+                            </span>
+                            {rule.priority > 0 && (
+                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                                Prio: {rule.priority}
+                              </span>
+                            )}
+                            <button
+                              onClick={() => handleTogglePricingRule(rule)}
+                              className={cn(
+                                "text-[10px] px-2 py-0.5 rounded-full font-bold transition-all",
+                                rule.isActive
+                                  ? "bg-green-50 text-[#16A34A] hover:bg-green-100"
+                                  : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                              )}
+                              title="Klik untuk mengubah status aktif/nonaktif"
+                            >
+                              {rule.isActive ? "● Aktif" : "○ Nonaktif"}
+                            </button>
+                          </div>
+                          <div className="mt-1 text-xs">
+                            Tarif Khusus: <strong className="text-purple-700 font-bold text-sm">{formatPrice(rule.pricePerHour)}</strong> /jam
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => handleEditPricingRule(rule)}
+                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Edit Aturan"
+                          >
+                            <PenLine className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeletePricingRule(rule)}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Hapus Aturan"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>

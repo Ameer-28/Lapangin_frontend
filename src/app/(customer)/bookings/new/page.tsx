@@ -106,17 +106,6 @@ function BookingPaymentContent() {
   const daysInMonth = getDaysInMonth(year, month);
   const firstDay = getFirstDayOfMonth(year, month);
 
-  const courtsList = venue.courts || [];
-  const currentCourt = courtsList.find((c: any) => c.id === selectedCourtId) || courtsList[0];
-  const price = currentCourt?.pricePerHour ?? (venue.pricePerHour || venue.price || 0);
-  const subtotal = price * duration;
-  const discountAmount = subtotal * discountPercent;
-  const serviceFee = 5000;
-  const total = subtotal - discountAmount + serviceFee;
-
-  const prevMonth = () => { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); };
-  const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); };
-
   // Helper to get array of consecutive time slots based on startTime and duration
   const getSelectedSlotRange = (startTime: string | null, dur: number): string[] => {
     if (!startTime) return [];
@@ -135,6 +124,30 @@ function BookingPaymentContent() {
     const endHour = startHour + dur;
     return `${endHour.toString().padStart(2, '0')}:00`;
   };
+
+  const courtsList = venue.courts || [];
+  const currentCourt = courtsList.find((c: any) => c.id === selectedCourtId) || courtsList[0];
+  const baseHourlyPrice = currentCourt?.pricePerHour ?? (venue.pricePerHour || venue.price || 0);
+
+  const activeSlotRange = selTime ? getSelectedSlotRange(selTime, duration) : [];
+  const slotPrices = activeSlotRange.map(t => {
+    const slotObj = timeSlots.find((s: any) => s.startTime === t);
+    return {
+      time: t,
+      price: slotObj?.price ?? baseHourlyPrice,
+      ruleName: slotObj?.pricingRule || null,
+    };
+  });
+  const subtotal = slotPrices.length > 0 
+    ? slotPrices.reduce((sum, s) => sum + s.price, 0)
+    : baseHourlyPrice * duration;
+  const price = duration > 0 ? Math.round(subtotal / duration) : baseHourlyPrice;
+  const discountAmount = Math.round(subtotal * discountPercent);
+  const serviceFee = 5000;
+  const total = subtotal - discountAmount + serviceFee;
+
+  const prevMonth = () => { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); };
+  const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); };
 
   const isSlotRangeAvailable = (startTime: string, dur: number): boolean => {
     const range = getSelectedSlotRange(startTime, dur);
@@ -677,10 +690,40 @@ function BookingPaymentContent() {
             </div>
 
             <div className="space-y-2.5 text-sm border-t border-gray-100 pt-4">
-              <div className="flex justify-between text-gray-600">
-                <span>{formatPrice(price)} × {duration}h</span>
-                <span>{formatPrice(subtotal)}</span>
-              </div>
+              {slotPrices.length > 1 && slotPrices.some(s => s.price !== slotPrices[0].price || s.ruleName) ? (
+                <div className="space-y-1.5 py-1 bg-gray-50/80 rounded-xl p-2.5 text-xs text-gray-600 border border-gray-100">
+                  <div className="font-bold text-gray-700 text-[11px] uppercase">Rincian Tarif per Jam:</div>
+                  {slotPrices.map((sp, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-[11px]">
+                      <span>
+                        Pukul {sp.time}
+                        {sp.ruleName && (
+                          <span className="ml-1 text-[9px] font-semibold text-purple-700 bg-purple-50 px-1 py-0.5 rounded border border-purple-200">
+                            {sp.ruleName}
+                          </span>
+                        )}
+                      </span>
+                      <span className="font-semibold text-gray-800">{formatPrice(sp.price)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between font-bold text-gray-900 border-t border-gray-200 pt-1.5 mt-1">
+                    <span>Subtotal ({duration} jam)</span>
+                    <span>{formatPrice(subtotal)}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-between text-gray-600">
+                  <span>
+                    {formatPrice(price)} × {duration}h
+                    {slotPrices[0]?.ruleName && (
+                      <span className="ml-1 text-[10px] font-semibold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
+                        {slotPrices[0].ruleName}
+                      </span>
+                    )}
+                  </span>
+                  <span>{formatPrice(subtotal)}</span>
+                </div>
+              )}
               {promoApplied && (
                 <div className="flex justify-between text-[#16A34A]">
                   <span>Promo {promo}</span>
