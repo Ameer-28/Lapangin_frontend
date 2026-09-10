@@ -5,7 +5,8 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { 
   ChevronLeft, MapPin, Heart, Clock, Star, 
-  Calendar as CalendarIcon, AlertTriangle, CheckCircle2, Shield, Award
+  Calendar as CalendarIcon, AlertTriangle, CheckCircle2, Shield, Award,
+  Sparkles, ArrowRight, Building2
 } from "lucide-react";
 import { GreenButton } from "@/components/ui/GreenButton";
 import { Stars } from "@/components/ui/Stars";
@@ -20,10 +21,6 @@ function VenueDetailContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const id = params.id as string;
-
-  const todayStr = new Date().toISOString().split("T")[0];
-  const paramDate = searchParams.get("date");
-  const paramTime = searchParams.get("time");
   const paramCourt = searchParams.get("courtId");
 
   const [venue, setVenue] = useState<any>(null);
@@ -32,12 +29,6 @@ function VenueDetailContent() {
   const [reviews, setReviews] = useState<any[]>([]);
   const [activeImg, setActiveImg] = useState(0);
   const [liked, setLiked] = useState(false);
-  
-  // Date & Slot Selection
-  const [selectedDate, setSelectedDate] = useState<string>(paramDate || todayStr);
-  const [selSlot, setSelSlot] = useState<string | null>(paramTime || null);
-  const [slots, setSlots] = useState<any[]>([]);
-  const [loadingSlots, setLoadingSlots] = useState(false);
 
   const [popup, setPopup] = useState<{
     isOpen: boolean;
@@ -51,12 +42,6 @@ function VenueDetailContent() {
     fetchReviews();
     checkFavorite();
   }, [id]);
-
-  useEffect(() => {
-    if (id && selectedDate && selectedCourtId) {
-      fetchTimeSlots(selectedDate, selectedCourtId);
-    }
-  }, [id, selectedDate, selectedCourtId]);
 
   const fetchVenue = async () => {
     try {
@@ -82,26 +67,6 @@ function VenueDetailContent() {
       setReviews(Array.isArray(raw) ? raw : (raw?.data || []));
     } catch (err) {
       console.error(err);
-    }
-  };
-
-  const fetchTimeSlots = async (dateStr: string, courtIdStr?: string) => {
-    setLoadingSlots(true);
-    try {
-      const res = await api.get(`/venues/${id}/slots`, {
-        params: { 
-          date: dateStr,
-          ...(courtIdStr ? { courtId: courtIdStr } : {})
-        }
-      });
-      const raw = res.data;
-      const slotList = Array.isArray(raw) ? raw : (raw?.data || []);
-      setSlots(slotList);
-    } catch (err) {
-      console.error("Failed to load time slots", err);
-      setSlots([]);
-    } finally {
-      setLoadingSlots(false);
     }
   };
 
@@ -137,19 +102,7 @@ function VenueDetailContent() {
     }
   };
 
-  // Helper date pills: today, tomorrow, day after
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toISOString().split("T")[0];
-
-  const dayAfter = new Date();
-  dayAfter.setDate(dayAfter.getDate() + 2);
-  const dayAfterStr = dayAfter.toISOString().split("T")[0];
-
-  const currentCourt = courts.find(c => c.id === selectedCourtId) || courts[0];
-  const activeCourtPrice = currentCourt?.pricePerHour ?? (venue?.pricePerHour || venue?.price || 0);
-
-  const handleBookNow = () => {
+  const handleBookNow = (targetCourtId?: string) => {
     const userStr = localStorage.getItem("user");
     if (userStr) {
       try {
@@ -166,18 +119,20 @@ function VenueDetailContent() {
       } catch (e) {}
     }
 
+    const courtToBook = targetCourtId || selectedCourtId;
     const q = new URLSearchParams();
     q.set("venueId", venue.id);
-    if (selectedCourtId) {
-      q.set("courtId", selectedCourtId);
-    }
-    q.set("date", selectedDate);
-    if (selSlot) {
-      q.set("time", selSlot);
+    if (courtToBook) {
+      q.set("courtId", courtToBook);
     }
 
     router.push(`/bookings/new?${q.toString()}`);
   };
+
+  const courtPrices = courts.filter(c => c.isActive && c.pricePerHour).map(c => c.pricePerHour);
+  const minPrice = courtPrices.length > 0 ? Math.min(...courtPrices, venue?.pricePerHour || Infinity) : (venue?.pricePerHour || 0);
+  const maxPrice = courtPrices.length > 0 ? Math.max(...courtPrices, venue?.pricePerHour || 0) : (venue?.pricePerHour || 0);
+  const hasPriceRange = minPrice !== maxPrice && minPrice > 0 && maxPrice > 0;
 
   if (!venue) {
     return (
@@ -255,7 +210,6 @@ function VenueDetailContent() {
                     onClick={() => {
                       if (court.isActive) {
                         setSelectedCourtId(court.id);
-                        setSelSlot(null);
                       }
                     }}
                     className={cx(
@@ -350,273 +304,95 @@ function VenueDetailContent() {
           </div>
         </div>
 
-        {/* Right Column: Interactive Court, Date & Slot Booking Card */}
+        {/* Right Column: Clean Booking Card */}
         <div className="lg:col-span-1">
-          <div className="sticky top-8 bg-white rounded-2xl border border-gray-100 shadow-xl p-6 space-y-5">
+          <div className="sticky top-8 bg-white rounded-2xl border border-gray-100 shadow-xl p-6 space-y-6">
             {/* Price Header */}
-            <div className="text-center pb-4 border-b border-gray-100">
-              <p className="text-gray-400 text-xs font-medium uppercase tracking-wider">Tarif Sewa</p>
-              {(() => {
-                const availablePrices = slots.filter((s: any) => !s.isBooked && s.price).map((s: any) => s.price);
-                const minP = availablePrices.length > 0 ? Math.min(...availablePrices) : activeCourtPrice;
-                const maxP = availablePrices.length > 0 ? Math.max(...availablePrices) : activeCourtPrice;
-                const hasRange = minP !== maxP;
-
-                return (
-                  <div>
-                    <p className="text-2xl sm:text-3xl font-extrabold text-[#16A34A] mt-1">
-                      {hasRange ? `${formatPrice(minP)} - ${formatPrice(maxP)}` : formatPrice(activeCourtPrice)}
-                    </p>
-                    <p className="text-gray-400 text-xs mt-0.5">
-                      per jam bermain {hasRange ? '(tarif dinamis/peak)' : ''}
-                    </p>
-                  </div>
-                );
-              })()}
+            <div className="text-center pb-5 border-b border-gray-100">
+              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Tarif Sewa</p>
+              <div className="mt-1">
+                <p className="text-3xl font-extrabold text-[#16A34A]">
+                  {hasPriceRange
+                    ? `${formatPrice(minPrice)} - ${formatPrice(maxPrice)}`
+                    : formatPrice(minPrice || venue.pricePerHour || 0)}
+                </p>
+                <p className="text-gray-400 text-xs mt-1">
+                  per jam bermain {hasPriceRange ? '(berdasarkan jenis lapangan & jam)' : ''}
+                </p>
+              </div>
             </div>
 
-            {/* Court Selection */}
-            {courts.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-bold text-gray-800 uppercase tracking-wide flex items-center gap-1.5">
-                    <Award className="w-3.5 h-3.5 text-[#16A34A]" /> Pilih Lapangan
-                  </label>
-                  <span className="text-[11px] text-gray-500 font-medium">
-                    {courts.filter(c => c.isActive).length} aktif
+            {/* Quick Venue Overview */}
+            <div className="space-y-3 text-xs text-gray-600">
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                <span className="flex items-center gap-2 font-medium">
+                  <Clock className="w-4 h-4 text-[#16A34A]" /> Jam Buka
+                </span>
+                <span className="font-bold text-gray-900">
+                  {venue.openTime || "07:00"} - {venue.closeTime || "23:00"} WIB
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                <span className="flex items-center gap-2 font-medium">
+                  <Building2 className="w-4 h-4 text-[#16A34A]" /> Tipe Arena
+                </span>
+                <span className="font-bold text-gray-900">
+                  {venue.type || "Indoor"}
+                </span>
+              </div>
+
+              {courts.length > 0 && (
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                  <span className="flex items-center gap-2 font-medium">
+                    <Award className="w-4 h-4 text-[#16A34A]" /> Pilihan Lapangan
+                  </span>
+                  <span className="font-bold text-gray-900">
+                    {courts.filter((c: any) => c.isActive).length} Lapangan Aktif
                   </span>
                 </div>
-
-                <div className="space-y-1.5">
-                  {courts.map((court: any) => {
-                    const isSelected = selectedCourtId === court.id;
-                    const courtPrice = court.pricePerHour ?? venue.pricePerHour;
-                    return (
-                      <button
-                        key={court.id}
-                        type="button"
-                        disabled={!court.isActive}
-                        onClick={() => {
-                          setSelectedCourtId(court.id);
-                          setSelSlot(null);
-                        }}
-                        className={cx(
-                          "w-full p-2.5 rounded-xl border text-left transition-all flex items-center justify-between",
-                          !court.isActive
-                            ? "bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed"
-                            : isSelected
-                              ? "bg-green-50 border-[#16A34A] ring-1 ring-[#16A34A] shadow-sm"
-                              : "bg-gray-50/70 border-gray-200 hover:bg-gray-100"
-                        )}
-                      >
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <span className={cx("text-xs font-bold", isSelected ? "text-green-900" : "text-gray-900")}>
-                              {court.name}
-                            </span>
-                            <span className={cx(
-                              "text-[9px] px-1.5 py-0.5 rounded font-semibold",
-                              court.courtType?.includes("Rumput") ? "bg-emerald-100 text-emerald-800" : "bg-blue-100 text-blue-800"
-                            )}>
-                              {court.courtType || "Vinyl"}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <span className="text-xs font-bold text-[#16A34A]">{formatPrice(courtPrice)}</span>
-                          <span className="text-[9px] text-gray-400 block">/jam</span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Date Selection */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-bold text-gray-800 uppercase tracking-wide flex items-center gap-1.5">
-                  <CalendarIcon className="w-3.5 h-3.5 text-[#16A34A]" /> Pilih Tanggal
-                </label>
-                <span className="text-[11px] text-[#16A34A] font-semibold">
-                  {new Date(selectedDate).toLocaleDateString("id-ID", { weekday: "short", day: "numeric", month: "short" })}
-                </span>
-              </div>
-
-              {/* Quick Date Pills */}
-              <div className="grid grid-cols-3 gap-1.5 mb-2.5">
-                {[
-                  { label: "Hari Ini", val: todayStr },
-                  { label: "Besok", val: tomorrowStr },
-                  { label: "Lusa", val: dayAfterStr },
-                ].map(p => (
-                  <button
-                    key={p.label}
-                    type="button"
-                    onClick={() => {
-                      setSelectedDate(p.val);
-                      setSelSlot(null);
-                    }}
-                    className={cx(
-                      "py-1.5 px-2 rounded-xl text-xs font-semibold border transition-all text-center",
-                      selectedDate === p.val
-                        ? "bg-[#16A34A] text-white border-[#16A34A] shadow-sm shadow-green-600/20"
-                        : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
-                    )}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Custom Date Picker */}
-              <input
-                type="date"
-                min={todayStr}
-                value={selectedDate}
-                onChange={e => {
-                  if (e.target.value) {
-                    setSelectedDate(e.target.value);
-                    setSelSlot(null);
-                  }
-                }}
-                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-800 outline-none focus:border-[#16A34A] focus:bg-white transition-all"
-              />
+              )}
             </div>
 
-            {/* Time Slot Selection */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-bold text-gray-800 uppercase tracking-wide flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-[#16A34A]" /> Ketersediaan Slot
-                </label>
-                {loadingSlots ? (
-                  <span className="text-[11px] text-gray-400">Memeriksa slot...</span>
-                ) : (
-                  <span className="text-[11px] text-gray-500 font-medium">
-                    {slots.filter(s => !s.isBooked).length} slot tersedia
-                  </span>
-                )}
-              </div>
-
-              <div className="grid grid-cols-3 gap-1.5 max-h-48 overflow-y-auto p-2 bg-gray-50 rounded-xl border border-gray-100">
-                {loadingSlots ? (
-                  <div className="col-span-3 py-6 text-center text-xs text-gray-400">
-                    Memuat jadwal lapangan...
-                  </div>
-                ) : slots.length === 0 ? (
-                  <div className="col-span-3 py-6 text-center text-xs text-gray-400">
-                    Tidak ada jadwal operasional pada tanggal ini.
-                  </div>
-                ) : (
-                  slots.map((s: any) => {
-                    const isSelected = selSlot === s.startTime;
-                    const isUnavailable = s.isBooked;
-
-                    return (
-                      <button
-                        key={s.id || s.startTime}
-                        type="button"
-                        disabled={isUnavailable}
-                        onClick={() => setSelSlot(s.startTime)}
-                        title={s.isClosed ? `Tutup: ${s.closureReason || 'Operasional'}` : isUnavailable ? 'Sudah dibooking' : `${s.pricingRule ? s.pricingRule + ': ' : ''}${formatPrice(s.price || activeCourtPrice)}`}
-                        className={cx(
-                          "py-2 px-1.5 rounded-xl text-xs font-semibold border transition-all text-center flex flex-col items-center justify-center",
-                          isUnavailable
-                            ? "bg-red-50 text-red-400 border-red-100 cursor-not-allowed line-through opacity-70"
-                            : isSelected
-                              ? "bg-[#16A34A] text-white border-[#16A34A] shadow-md shadow-green-600/30 scale-[1.02]"
-                              : "bg-white text-gray-700 border-gray-200 hover:border-green-400 hover:bg-green-50/50"
-                        )}
-                      >
-                        <span>{s.startTime}</span>
-                        {!isUnavailable && s.price && (
-                          <span className={cx(
-                            "text-[9px] font-bold mt-0.5",
-                            isSelected ? "text-green-100" : s.pricingRule ? "text-purple-600" : "text-gray-400"
-                          )}>
-                            {Math.round(s.price / 1000)}k
-                            {s.pricingRule && <span className="ml-0.5 font-normal">★</span>}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* Slot Status Legend */}
-              <div className="flex items-center justify-between text-[10px] text-gray-500 pt-2 px-1">
-                <div className="flex items-center gap-1">
-                  <div className="w-2.5 h-2.5 rounded bg-white border border-gray-300" />
-                  <span>Tersedia</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-2.5 h-2.5 rounded bg-[#16A34A]" />
-                  <span>Dipilih</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-purple-600 font-bold text-[9px]">★</span>
-                  <span>Tarif Khusus</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-2.5 h-2.5 rounded bg-red-100 border border-red-200" />
-                  <span>Penuh</span>
-                </div>
-              </div>
+            {/* Benefit Highlights */}
+            <div className="p-4 bg-green-50/70 rounded-xl border border-green-100 space-y-2.5">
+              <p className="text-xs font-bold text-green-900 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-[#16A34A]" /> Keuntungan Booking di Lapang.in:
+              </p>
+              <ul className="text-xs text-green-800 space-y-2">
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#16A34A] shrink-0 mt-0.5" />
+                  <span>Pilih jadwal, lapangan & durasi bermain secara leluasa</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#16A34A] shrink-0 mt-0.5" />
+                  <span>Konfirmasi instan & slot langsung terkunci resmi</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#16A34A] shrink-0 mt-0.5" />
+                  <span>Pembayaran aman otomatis (QRIS, VA, E-Wallet, Kartu)</span>
+                </li>
+              </ul>
             </div>
 
-            {/* Booking Summary Box */}
-            <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 text-xs space-y-1.5">
-              <div className="flex justify-between text-gray-600">
-                <span>Lapangan:</span>
-                <span className="font-semibold text-gray-900">
-                  {currentCourt?.name || 'Lapangan 1 (Utama)'}
-                </span>
-              </div>
-              <div className="flex justify-between text-gray-600">
-                <span>Tanggal:</span>
-                <span className="font-semibold text-gray-900">
-                  {new Date(selectedDate).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
-                </span>
-              </div>
-              <div className="flex justify-between text-gray-600">
-                <span>Jam:</span>
-                <span className={cx("font-bold", selSlot ? "text-[#16A34A]" : "text-amber-600")}>
-                  {selSlot ? `${selSlot} WIB` : "Belum dipilih"}
-                </span>
-              </div>
-              {selSlot && (() => {
-                const slotObj = slots.find((s: any) => s.startTime === selSlot);
-                const slotPrice = slotObj?.price ?? activeCourtPrice;
-                return (
-                  <div className="flex justify-between text-gray-600 border-t border-gray-200/50 pt-1.5">
-                    <span>Estimasi Tarif:</span>
-                    <span className="font-bold text-[#16A34A]">
-                      {formatPrice(slotPrice)}
-                      {slotObj?.pricingRule && (
-                        <span className="ml-1 text-[10px] text-purple-700 font-semibold bg-purple-50 px-1 py-0.5 rounded border border-purple-200">
-                          {slotObj.pricingRule}
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                );
-              })()}
+            {/* Primary Action Button */}
+            <div className="space-y-2 pt-1">
+              <GreenButton 
+                onClick={() => handleBookNow()} 
+                className="w-full py-4 text-base font-bold shadow-lg shadow-green-600/25 flex items-center justify-center gap-2 group hover:shadow-green-600/40 transition-all"
+              >
+                <span>Booking Lapangan Sekarang</span>
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </GreenButton>
+              <p className="text-center text-[11px] text-gray-400">
+                Pilih lapangan, tanggal & jam bermain di sesi booking
+              </p>
             </div>
 
-            {/* Action Button */}
-            <GreenButton 
-              onClick={handleBookNow} 
-              className="w-full py-3.5 text-sm font-bold shadow-lg shadow-green-600/30"
-            >
-              {selSlot ? `Lanjut Booking (${selSlot})` : "Pilih Slot & Lanjut Booking"}
-            </GreenButton>
-
-            <div className="flex items-center justify-center gap-1.5 text-center text-gray-400 text-[11px]">
+            {/* Trust Footer */}
+            <div className="flex items-center justify-center gap-1.5 text-center text-gray-400 text-[11px] pt-2 border-t border-gray-100">
               <Shield className="w-3.5 h-3.5 text-green-600" />
-              <span>Garansi transaksi aman & konfirmasi instan</span>
+              <span>Garansi transaksi aman & resmi Lapang.in</span>
             </div>
           </div>
         </div>

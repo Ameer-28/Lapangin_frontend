@@ -407,6 +407,15 @@ function BookingPaymentContent() {
   }
 
   const handleNextStep = () => {
+    if (!selTime) {
+      setPopup({
+        isOpen: true,
+        type: "warning",
+        title: "Pilih Jam Main",
+        message: "Silakan pilih jam main yang tersedia terlebih dahulu sebelum melanjutkan ke pembayaran.",
+      });
+      return;
+    }
     if (step === "booking") setStep("payment");
   };
 
